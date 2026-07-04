@@ -1,0 +1,102 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "Zap",
+  "theme": "luma",
+  "colors": {
+    "primary": "#5c80aa",
+    "light": "#1f2a3b",
+    "dark": "#5c80aa"
+  },
+  "favicon": "https://icons.duckduckgo.com/ip3/zap-sepia.vercel.app.ico",
+  "logo": {
+    "light": "https://media.brand.dev/86f129d9-0957-49c1-8c00-f63ea0d1e19c.png",
+    "dark": "https://media.brand.dev/86f129d9-0957-49c1-8c00-f63ea0d1e19c.png"
+  },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/gratitude5dee/Zap"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/gratitude5dee/Zap"
+    }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "quickstart-agents"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/zap-spec",
+              "concepts/steps",
+              "concepts/budget",
+              "concepts/providers"
+            ]
+          },
+          {
+            "group": "Web App",
+            "pages": [
+              "webapp/overview",
+              "webapp/studio",
+              "webapp/auth-secrets"
+            ]
+          },
+          {
+            "group": "Agent Framework",
+            "pages": [
+              "agent/overview",
+              "agent/skills",
+              "agent/eve"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "deployment/vercel",
+              "deployment/supabase-secrets",
+              "deployment/convex"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "groups": [
+          {
+            "group": "CLI",
+            "pages": [
+              "reference/cli",
+              "reference/cli-flags"
+            ]
+          },
+          {
+            "group": "Schema",
+            "pages": [
+              "reference/schema",
+              "reference/step-kinds",
+              "reference/runtime"
+            ]
+          },
+          {
+            "group": "Support",
+            "pages": [
+              "reference/troubleshooting"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
