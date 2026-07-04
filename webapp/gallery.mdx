@@ -1,0 +1,97 @@
+---
+title: "Gallery: Browsing Every Installed Zap Recipe"
+sidebarTitle: "Gallery"
+description: "The gallery at /gallery lists every installed Zap recipe with title, description, budget, and a link to the one-click runner. It's the default entry point for creators."
+---
+
+The **Gallery** at [`/gallery`](https://zap.wzrd.tech/gallery) is the browsable index of every recipe installed in the current deployment. It reads the same source of truth as the CLI — the `agent/skills/zap-*/` directories — and surfaces each recipe as a card linking into the [Creator Runner](/webapp/creator-runner).
+
+## What the Gallery Shows
+
+Each installed recipe becomes a card with:
+
+- **Title** — derived from the slug (e.g. `zap-world-cup-entrance` → "World Cup Entrance").
+- **Description** — the `description` field from `Zap.md` frontmatter.
+- **Budget** — `estimate_usd` and `cap_usd`.
+- **Provider badge** — the `defaults.provider` value (mock, gmi, fal, etc.).
+- **Thumbnail** — the first image in `agent/skills/zap-<slug>/media/` if present, otherwise a placeholder.
+- **Run button** — links to `/zap/<slug>`.
+
+## Backing Endpoint
+
+The gallery hydrates from the unauthenticated `GET /api/zaps` endpoint:
+
+```http
+GET /api/zaps
+```
+
+```json
+{
+  "zaps": [
+    {
+      "zap": "world-cup-entrance",
+      "title": "World Cup Entrance",
+      "description": "Generate a cinematic team entrance video.",
+      "version": 1,
+      "defaults": { "provider": "gmi" },
+      "budget": { "cap_usd": 2.0, "estimate_usd": 0.8 },
+      "inputs": { "teamName": { "type": "string", "required": true } },
+      "output": "Zap.mp4",
+      "steps": []
+    }
+  ]
+}
+```
+
+This endpoint is public — no auth required — so agents and third parties can enumerate available recipes without a session. See [Web App Overview](/webapp/overview#get-apizaps) for the full envelope.
+
+## Filtering and Search
+
+The gallery client filters and searches purely in the browser (the API returns the full list). Supported filters:
+
+| Filter | Behavior |
+| --- | --- |
+| Search box | Substring match against `title` and `description`. |
+| Provider chip | Show only recipes whose `defaults.provider` matches. |
+| Free / paid | "Free" filters to recipes whose `budget.estimate_usd` is `0`; "Paid" shows the rest. |
+
+## Adding a Recipe to the Gallery
+
+Anything under `agent/skills/zap-*/Zap.md` at deploy time appears in the gallery automatically — there is no manual registration step.
+
+<Steps>
+  <Step title="Author the recipe locally">
+    ```bash
+    npx @wzrdtech/zap@0.1.0 new my-recipe
+    npx @wzrdtech/zap@0.1.0 validate
+    ```
+  </Step>
+  <Step title="Commit and push">
+    Commit the new `agent/skills/zap-my-recipe/` directory to your deployment repo.
+  </Step>
+  <Step title="Redeploy">
+    On the next Vercel build the recipe appears in the gallery and at `/zap/my-recipe`.
+  </Step>
+</Steps>
+
+<Note>
+  The gallery does not currently paginate — it renders every installed recipe on a single page. Deployments with more than a few dozen recipes should consider grouping them via slug prefixes and adding a category chip filter.
+</Note>
+
+## Hidden Recipes
+
+Adding `hidden: true` to a recipe's `Zap.md` frontmatter excludes it from the gallery list, but the recipe remains reachable at `/zap/<slug>` (useful for private beta recipes shared via direct link).
+
+```yaml
+---
+zap: internal-preview
+hidden: true
+# ...
+---
+```
+
+## Related
+
+- [Creator Runner](/webapp/creator-runner) — the destination when a user clicks Run on a gallery card.
+- [Web App Overview](/webapp/overview) — the full route map and REST API reference.
+- [Zap Spec](/concepts/zap-spec) — all frontmatter fields including `description` and `hidden`.

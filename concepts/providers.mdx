@@ -11,15 +11,21 @@ Zap separates recipe planning from provider execution. When a run is submitted, 
 Zap v1 recognises seven provider adapters, grouped into three tiers:
 
 ### `mock`
+
 Deterministic, zero-cost outputs designed for documentation, automated tests, and unauthenticated demos. The mock adapter returns placeholder media assets with predictable filenames and durations. No API key is required. Use mock mode for all recipe authoring and CI validation.
 
 ### `gmi`
-The primary live image and video provider. Routes to GMI Cloud infrastructure. Requires a `gmi_api_key` (and optionally `gmi_org_id`) stored in Supabase or supplied via environment variable. This is the default provider when `defaults.provider` is omitted from the recipe.
+
+The primary live image and video provider. Routes to [GMI Cloud](https://console.gmicloud.ai) infrastructure and settles on the flagship Seedance 2.0 (`seedance-2-0-260128`) model for video. Requires a `gmi_api_key` (and optionally `gmi_org_id`) stored in Supabase or supplied via environment variable. This is the default provider when `defaults.provider` is omitted from the recipe.
+
+For the full BYOK setup, request/response shapes, T2V / I2V / R2V modes, and resolution pricing, see [GMI Cloud (BYOK)](/providers/gmi).
 
 ### `fal`
+
 The secondary live provider. Routes to the fal.ai platform. Requires a `fal_key`. Used when a step specifies `provider: fal` explicitly, or as a fallback when `gmi` is unavailable for a given model.
 
 ### `runware`, `prodia`, `openrouter`, `ai_gateway`
+
 BYOK-ready (Bring Your Own Key) provider types. These are not in the default routing chain but can be targeted explicitly via step-level `provider` fields when the creator supplies the corresponding secret. See the [BYOK Secret Types](#byok-secret-types) table below.
 
 ## Setting the Provider via Environment Variable
@@ -32,22 +38,27 @@ ZAP_PROVIDER=mock npx @wzrdtech/zap@0.1.0 run world-cup-entrance --json
 
 This is the recommended way to run mock pipelines in CI without modifying the recipe file.
 
-## Running Live
+## Running Live with GMI (BYOK)
 
-When you are ready to submit to a real provider, pass the `--live` flag:
+When you are ready to submit to a real provider, export your GMI key and pass the `--live` flag:
 
 ```bash
+export GMI_API_KEY="sk-gmi-..."
+export GMI_ORG_ID="org-..."   # optional
+
 npx @wzrdtech/zap@0.1.0 run world-cup-entrance --live --input SELFIE=./selfie.png
 ```
 
 The CLI will build a full plan, print the cost quote, enforce the budget cap, and then dispatch each step to its configured provider adapter. Provider keys must be available in the environment before this command is run.
+
+Under the hood, the GMI adapter POSTs each step to `https://console.gmicloud.ai/api/v1/ie/requestqueue/apikey/requests` with a `Bearer` token and polls for completion. See [GMI Cloud (BYOK)](/providers/gmi) for the full request/response contract, Seedance 2.0 parameters, and per-resolution pricing.
 
 ## BYOK Secret Types
 
 The following secret types are recognised by the Zap key store. On the web platform these are stored in Supabase and looked up per user before a live run begins.
 
 | Secret Key | Provider | Description |
-|---|---|---|
+| --- | --- | --- |
 | `gmi_api_key` | GMI Cloud | Primary API key for GMI image and video generation |
 | `gmi_org_id` | GMI Cloud | Optional organisation ID scoping requests to a GMI workspace |
 | `fal_key` | fal.ai | API key for fal.ai model inference |

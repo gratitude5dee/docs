@@ -1,0 +1,97 @@
+---
+title: "Zap Runtime: One-Click Recipe Execution at /zap/[slug]"
+sidebarTitle: "Zap runtime"
+description: "The one-click creator runner at /zap/[slug] renders the recipe's declared inputs, quotes the run in real time, and dispatches mock or live pipelines from the browser."
+---
+
+The **Zap Runtime** at `/zap/[slug]` is the primary end-user surface of the Zap web app. Each installed recipe under `agent/skills/zap-<slug>/` is exposed as a stable public URL like `https://zap.wzrd.tech/zap/world-cup-entrance`. The page reads the recipe's `Zap.md` frontmatter, renders a form for the declared `inputs`, shows a live cost quote, and dispatches the run to the same backend used by the CLI.
+
+## Route Contract
+
+| URL | Behavior |
+| --- | --- |
+| `/zap/[slug]` | Renders the input form for the recipe. |
+| `/zap/[slug]?inputs=<base64json>` | Prefills inputs (useful for share links). |
+| `POST /api/zaps/run` | Backing endpoint that dispatches the run. See [Web App Overview](/webapp/overview#post-apizapsrun). |
+
+The slug maps 1:1 to a directory: `/zap/world-cup-entrance` → `agent/skills/zap-world-cup-entrance/Zap.md`. If the slug does not resolve to an installed recipe the page returns 404.
+
+## Anatomy of the Page
+
+<Steps>
+  <Step title="Hero">
+    Shows the recipe title (derived from the slug), `description` from frontmatter, an example output thumbnail, and the current `budget.estimate_usd` / `budget.cap_usd` values.
+  </Step>
+  <Step title="Input form">
+    One field per entry in `inputs:`. The field type is chosen from the recipe declaration:
+
+    | Recipe type | Rendered as |
+    | --- | --- |
+    | `string` | single-line text input |
+    | `textarea` | multi-line text input |
+    | `image` | drag-and-drop uploader (writes to Supabase storage) |
+    | `number` | numeric input with `min` / `max` |
+    | `enum` | select dropdown from the declared `options` |
+
+    Required fields are marked with an asterisk and block submission when empty.
+  </Step>
+  <Step title="Mode toggle">
+    A **Mock** / **Live** toggle. Mock is always the default and free. Switching to Live requires a connected wallet and at least one active provider key (see [Auth & Secrets](/webapp/auth-secrets)).
+  </Step>
+  <Step title="Quote panel">
+    Displays the real-time cost estimate. Every input change and every `extendCount` change re-quotes against the planner. If the quote exceeds `budget.cap_usd`, the Live button is disabled.
+  </Step>
+  <Step title="Run">
+    Clicking **Run** POSTs to `/api/zaps/run` and redirects to `/runs/[runId]` for the live timeline.
+  </Step>
+</Steps>
+
+## Extending With `extendCount`
+
+Recipes that include a `video.extend` step with a `repeat` block expose an **Extend** slider on the runner. The slider is clamped to `[repeat.min, repeat.max]` and defaults to `repeat.default`. Each extra extension multiplies the video generation cost by the model's per-second rate, and the quote panel updates instantly.
+
+## Request Payload
+
+When the user clicks Run, the client sends:
+
+```http
+POST /api/zaps/run
+Content-Type: application/json
+Authorization: Bearer <supabase-session-token>   # only when Live=true
+```
+
+```json
+{
+  "slug": "world-cup-entrance",
+  "inputs": { "SELFIE": "https://<supabase-storage>/uploads/abc.png", "PLAYER_NAME": "Zap FC" },
+  "live": false,
+  "extendCount": 2
+}
+```
+
+Image inputs are uploaded first to Supabase storage; the runner submits the returned public URL, not the raw file bytes.
+
+## Response Handling
+
+Mock runs return synchronously with `status: "done"` and a `zapUrl`. Live runs return `status: "queued"` and a `runId`; the page redirects to [`/runs/[runId]`](/webapp/run-status) where the timeline streams live from Convex.
+
+## Share Links
+
+Any run form can be shared with pre-filled inputs by base64-encoding a JSON object and appending it to the URL:
+
+```text
+https://zap.wzrd.tech/zap/world-cup-entrance?inputs=eyJQTEFZRVJfTkFNRSI6IlphcCBGQyJ9
+```
+
+When followed, the runner decodes and applies the inputs, but never auto-submits — the user still has to click Run.
+
+<Note>
+  The creator runner never talks to providers directly. All dispatch, key resolution, budget enforcement, and Convex writes happen server-side in `POST /api/zaps/run`. This preserves the same auth posture and budget rules as CLI runs.
+</Note>
+
+## Related
+
+- [Gallery](/webapp/gallery) — the index of all installed recipes and how they link into the runner.
+- [Run Status](/webapp/run-status) — the live timeline shown after a Live run is dispatched.
+- [Auth & Secrets](/webapp/auth-secrets) — wallet connect and BYOK key management.
+- [Budget](/concepts/budget) — how the quote is calculated and enforced.

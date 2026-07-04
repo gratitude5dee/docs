@@ -49,14 +49,25 @@
             "group": "Web App",
             "pages": [
               "webapp/overview",
+              "webapp/zap-runtime",
+              "webapp/run-status",
               "webapp/studio",
+              "webapp/gallery",
               "webapp/auth-secrets"
+            ]
+          },
+          {
+            "group": "Providers",
+            "icon": "plug",
+            "pages": [
+              "providers/gmi"
             ]
           },
           {
             "group": "Agent Framework",
             "pages": [
               "agent/overview",
+              "agent/connections",
               "agent/skills",
               "agent/eve"
             ]

@@ -1,0 +1,288 @@
+---
+title: "GMI Cloud BYOK: Seedance 2.0 Live Video Generation"
+sidebarTitle: "GMI Cloud (BYOK)"
+description: "Bring your own GMI Cloud API key to run Zap recipes against Seedance 2.0 — the flagship BytePlus video model — for T2V, I2V, and R2V generation."
+---
+
+GMI Cloud is Zap's **primary live video provider**. When a step declares `provider: gmi` (or `defaults.provider: gmi` is set) and the run is dispatched with `--live`, the GMI adapter routes the request to the [GMI Cloud request queue API](https://console.gmicloud.ai) and settles on the flagship BytePlus **Seedance 2.0** model (`seedance-2-0-260128`). This page documents how to obtain a GMI key, wire it into a CLI or web run, and shape recipe steps to match Seedance's parameters.
+
+<Note>
+  GMI keys are **bring-your-own-key (BYOK)**. Zap does not proxy or resell GMI capacity. You must have a funded GMI Cloud account and export the key locally or store it in Supabase before any live run is accepted.
+</Note>
+
+## 1. Obtain a GMI API Key
+
+<Steps>
+  <Step title="Sign in to GMI Cloud">
+    Visit [console.gmicloud.ai](https://console.gmicloud.ai) and sign in or create an account.
+  </Step>
+  <Step title="Generate an API key">
+    Open **Settings → API Keys** and click **Create key**. Copy the key immediately — it will not be shown again.
+  </Step>
+  <Step title="(Optional) Note your org ID">
+    If your account belongs to a shared workspace, copy the organisation ID from **Settings → Organisation**. Zap sends it as `gmi_org_id` when present.
+  </Step>
+</Steps>
+
+## 2. Wire the Key Into Zap
+
+Zap accepts the GMI key in two places, depending on where the run originates.
+
+### CLI runs — environment variable
+
+Export the key in the shell where `zap run --live` will be invoked:
+
+```bash
+export GMI_API_KEY="sk-gmi-..."
+export GMI_ORG_ID="org-..."   # optional
+```
+
+Or add to `.env.local` at your project root (already git-ignored by the `zap init` scaffold):
+
+```env
+GMI_API_KEY=sk-gmi-...
+GMI_ORG_ID=org-...
+```
+
+Run the doctor command to confirm the CLI can see the key:
+
+```bash
+npx @wzrdtech/zap@0.1.0 doctor
+```
+
+### Web runs — Supabase vault
+
+For runs initiated from [zap.wzrd.tech](https://zap.wzrd.tech), the key is stored server-side per creator wallet. See [Auth & Secrets](/webapp/auth-secrets) for the full flow. Summary:
+
+```http
+PUT /api/secrets
+Authorization: Bearer <supabase-session-token>
+Content-Type: application/json
+
+{ "provider": "gmi", "key": "gmi_api_key", "value": "sk-gmi-..." }
+```
+
+Keys are encrypted at rest and only decrypted server-side immediately before dispatching the run to GMI.
+
+## 3. The Seedance 2.0 Model
+
+Seedance 2.0 (`seedance-2-0-260128`) is the flagship BytePlus video model exposed through GMI. It supports three generation modes:
+
+| Mode | Trigger | Description |
+| --- | --- | --- |
+| **T2V** — Text-to-Video | `prompt` only | Generate a clip from a text description. |
+| **I2V** — Image-to-Video | `first_frame` (and optional `last_frame`) | Animate a still image; optionally interpolate to a last frame. |
+| **R2V** — Reference-to-Video | `reference_images` / `reference_videos` / `reference_audios` | Condition on up to 9 images, 3 videos, or 3 audios. |
+
+At least one of `prompt`, `first_frame`, `reference_images`, or `reference_videos` must be present.
+
+### Seedance parameters
+
+| Parameter | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `prompt` | string | conditional | `""` | Text description. Required only if no image/video reference is supplied. |
+| `first_frame` | image URL | conditional | — | First-frame anchor for I2V. |
+| `last_frame` | image URL | no | — | Optional last-frame target for I2V interpolation. |
+| `reference_images` | image URL\[\] | conditional | — | Up to 9 reference images (R2V). |
+| `reference_videos` | video URL\[\] | conditional | — | Up to 3 reference videos (R2V). |
+| `reference_audios` | audio URL\[\] | no | — | Up to 3 reference audios (R2V). |
+| `duration` | integer | no | `5` | Clip length in seconds. Valid range **4–15**. |
+| `resolution` | enum | no | `"720p"` | `"480p"`, `"720p"`, or `"1080p"`. |
+| `ratio` | enum | no | `"adaptive"` | Aspect ratio, e.g. `"16:9"`, `"9:16"`, `"1:1"`. |
+| `generate_audio` | boolean | no | `true` | Generate a matching audio track. |
+| `watermark` | boolean | no | `false` | Add a GMI watermark to the output. |
+| `seed` | integer | no | — | Reproducibility seed. `-1` requests a random seed. |
+| `web_search` | boolean | no | `false` | Enrich the prompt with a web search before generation. |
+
+### Pricing (per second of output video)
+
+| Resolution | Price / second |
+| --- | --- |
+| 480p | **\$0.07** |
+| 720p | **\$0.152** |
+| 1080p | **\$0.374** |
+
+Zap's cost planner uses the 720p rate (\$0.07/s in the built-in rate table) as the default — override with a step-level `model` or custom rate if you're targeting a different resolution.
+
+## 4. Recipe Examples
+
+All three Seedance modes are expressible as a single `video.gen` step in a Zap recipe.
+
+### T2V — text-to-video
+
+```yaml
+- id: initial_gen
+  kind: video.gen
+  provider: gmi
+  model: seedance-2-0-260128
+  duration_s: 5
+  prompt: prompts/initial-gen.md
+  # The prompt file body becomes the Seedance `prompt` field.
+  audio:
+    generate_audio: true
+  first_frame:
+    resolution: "720p"
+    ratio: "16:9"
+```
+
+### I2V — first-frame animation
+
+```yaml
+- id: initial_frame
+  kind: image.gen
+  provider: gmi
+  model: fal-ai/flux/dev
+  prompt: prompts/initial-frame.md
+
+- id: initial_gen
+  kind: video.gen
+  provider: gmi
+  model: seedance-2-0-260128
+  inputs: [initial_frame]              # -> first_frame
+  duration_s: 5
+  prompt: prompts/pan-up.md
+  first_frame:
+    resolution: "720p"
+    ratio: "9:16"
+```
+
+Zap's provider adapter maps the resolved `inputs[0]` URL to Seedance's `first_frame` parameter automatically.
+
+### R2V — reference conditioning
+
+```yaml
+- id: reference_gen
+  kind: video.gen
+  provider: gmi
+  model: seedance-2-0-260128
+  reference_images:
+    - inputs/style_ref_1.jpg
+    - inputs/style_ref_2.jpg
+  duration_s: 7
+  prompt: prompts/cinematic.md
+  first_frame:
+    resolution: "720p"
+    ratio: "16:9"
+```
+
+## 5. Raw API Reference
+
+Zap wraps these calls, but you may need to reproduce them directly for debugging.
+
+### Submit a request
+
+```http
+POST https://console.gmicloud.ai/api/v1/ie/requestqueue/apikey/requests
+Authorization: Bearer <GMI_API_KEY>
+Content-Type: application/json
+```
+
+<CodeGroup>
+
+```bash T2V
+curl -X POST "https://console.gmicloud.ai/api/v1/ie/requestqueue/apikey/requests" \
+  -H "Authorization: Bearer $GMI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "seedance-2-0-260128",
+    "payload": {
+      "prompt": "A majestic eagle soaring over snowy mountains at sunset",
+      "duration": 5,
+      "resolution": "720p",
+      "ratio": "16:9",
+      "generate_audio": true
+    }
+  }'
+```
+
+```bash I2V
+curl -X POST "https://console.gmicloud.ai/api/v1/ie/requestqueue/apikey/requests" \
+  -H "Authorization: Bearer $GMI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "seedance-2-0-260128",
+    "payload": {
+      "first_frame": "https://example.com/frame.jpg",
+      "prompt": "Camera slowly pans upward",
+      "duration": 5,
+      "resolution": "720p",
+      "ratio": "16:9"
+    }
+  }'
+```
+
+```bash R2V
+curl -X POST "https://console.gmicloud.ai/api/v1/ie/requestqueue/apikey/requests" \
+  -H "Authorization: Bearer $GMI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "seedance-2-0-260128",
+    "payload": {
+      "reference_images": ["https://example.com/ref1.jpg"],
+      "prompt": "Cinematic slow motion",
+      "duration": 7,
+      "resolution": "720p",
+      "ratio": "16:9"
+    }
+  }'
+```
+
+</CodeGroup>
+
+### Response envelope
+
+```json
+{
+  "request_id": "abc123",
+  "model": "seedance-2-0-260128",
+  "status": "success",
+  "outcome": {
+    "media_urls": [
+      { "id": "0", "url": "https://storage.googleapis.com/..." }
+    ],
+    "thumbnail_image_url": "https://storage.googleapis.com/..."
+  }
+}
+```
+
+### Poll a request
+
+```http
+GET https://console.gmicloud.ai/api/v1/ie/requestqueue/apikey/requests/{request_id}
+Authorization: Bearer <GMI_API_KEY>
+```
+
+Zap's runtime polls this endpoint via Upstash queue workers; you rarely need to call it manually. When you do, use it to confirm asynchronous completion during debugging.
+
+## 6. Running Live End-to-End
+
+```bash
+# 1. Verify your key is loaded
+npx @wzrdtech/zap@0.1.0 doctor
+
+# 2. Mock the run to see the quote first
+npx @wzrdtech/zap@0.1.0 run agent/skills/zap-my-zap/Zap.md --json
+
+# 3. Approve the quote, then dispatch live
+npx @wzrdtech/zap@0.1.0 run agent/skills/zap-my-zap/Zap.md --live --json \
+  --input PROMPT="an astronaut riding a cheetah"
+```
+
+The live run returns a `runId`; check status with:
+
+```bash
+npx @wzrdtech/zap@0.1.0 status <runId>
+```
+
+Or open `https://zap.wzrd.tech/runs/<runId>` in the browser for the visual timeline.
+
+<Warning>
+  Live runs charge your GMI Cloud account immediately when each step is accepted. Always run mock first, confirm the quote, and only pass `--live` after review. Budget caps in `Zap.md` are enforced server-side but will not refund a step that has already been dispatched.
+</Warning>
+
+## Related
+
+- [Providers](/concepts/providers) — how Zap routes each step and the full BYOK secret table.
+- [Budget](/concepts/budget) — how the planner quotes and enforces spend before dispatch.
+- [Auth & Secrets](/webapp/auth-secrets) — storing your GMI key in Supabase for web runs.
+- [Step Kinds](/reference/step-kinds) — all 11 step types and their per-model rates.

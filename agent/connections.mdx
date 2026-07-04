@@ -1,0 +1,236 @@
+---
+title: "Agent Connections: Codex, Claude Code, Cursor, OpenClaw, Hermes"
+sidebarTitle: "Agent Connections"
+description: "Connect any coding agent — Codex, Claude Code, Cursor, OpenClaw, Hermes — to Zap's remote skill registry and CLI so it can author, validate, and run recipes autonomously."
+---
+
+Zap is agent-native by design: every recipe is a portable skill directory with machine-readable frontmatter, and every CLI command emits structured JSON. Any agent that can run shell commands and read a URL can bootstrap a Zap project, author new recipes, and dispatch runs. This page walks through connecting each supported agent — **Codex**, **Claude Code**, **Cursor**, **OpenClaw**, **Hermes**, and any generic MCP-capable client — to the Zap skill registry and CLI.
+
+<Note>
+  This page focuses on the _connection layer_: how each agent finds Zap and executes it. For the agent behavioral contract (read `SKILL.md` first, keep spend opt-in, etc.), see [Agent Setup](/quickstart-agents). For the tools the Eve runtime exposes to agents, see [Agent Overview](/agent/overview).
+</Note>
+
+## The Skill Download URLs
+
+Every agent bootstraps from the same three endpoints. Point your agent at these before any other configuration:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `https://zap.wzrd.tech/api/skills` | Full manifest of every registered skill (JSON). |
+| `https://zap.wzrd.tech/api/skills/zap` | Core Zap framework skill — recipe grammar, CLI usage, run contract. |
+| `https://zap.wzrd.tech/api/skills/zap-authoring` | Authoring skill — schema fields, prompt conventions, validation rules. |
+| `https://zap.wzrd.tech/api/skills/{slug}` | Any published recipe skill by slug. |
+| `https://zap.wzrd.tech/api/skills/{slug}?format=json` | Same skill as a structured JSON envelope. |
+
+Appending `?format=json` returns `{ skill, hash, files: [{ path, content }] }` instead of raw Markdown — preferable for programmatic ingestion.
+
+```bash
+# Fetch the master manifest
+curl -s https://zap.wzrd.tech/api/skills | jq
+
+# Pull a specific skill as JSON
+curl -s https://zap.wzrd.tech/api/skills/zap-authoring?format=json | jq
+```
+
+## CLI Contract
+
+All agents drive Zap through the same CLI. Two commands are enough for a full flow:
+
+```bash
+# Validate any recipe in the current project
+npx @wzrdtech/zap@0.1.0 validate
+
+# Run a recipe (defaults to mock — zero cost)
+npx @wzrdtech/zap@0.1.0 run agent/skills/zap-<slug>/Zap.md --json
+```
+
+Agents should always pass `--json` so output is machine-parseable. The result envelope contains `runId`, `status`, `zapUrl`, and a per-step breakdown — no additional API is needed to observe progress.
+
+## Per-Agent Setup
+
+<Tabs>
+  <Tab title="Codex">
+    ### OpenAI Codex CLI
+
+    Codex reads project instructions from `AGENTS.md` at the repo root. `zap init` writes this file automatically. To point Codex at the remote registry as well, add a `zap` section to your Codex configuration or paste the following into a session prompt:
+
+    ```text
+    Use the Zap skills from https://zap.wzrd.tech/api/skills.
+    Read AGENTS.md and agent/skills/zap-authoring/SKILL.md before editing any Zap.md.
+    Validate with:  npx @wzrdtech/zap@0.1.0 validate
+    Run mock with:  npx @wzrdtech/zap@0.1.0 run agent/skills/zap-<slug>/Zap.md --json
+    Never pass --live without explicit user approval.
+    ```
+
+    Codex will use the CLI directly through its shell tool; no MCP server is required.
+  </Tab>
+  <Tab title="Claude Code">
+    ### Anthropic Claude Code
+
+    Claude Code auto-loads `AGENTS.md` and `CLAUDE.md` from the workspace root. `zap init` writes `AGENTS.md`. For explicit registry access, add the following to `.claude/settings.json` or paste as a slash-command prompt:
+
+    ```text
+    Zap project. Sources of truth:
+      - AGENTS.md
+      - agent/skills/zap/SKILL.md
+      - agent/skills/zap-authoring/SKILL.md
+    
+    Remote registry: https://zap.wzrd.tech/api/skills
+    
+    Before committing any recipe change, run:
+      npx @wzrdtech/zap@0.1.0 validate
+      npx @wzrdtech/zap@0.1.0 lint
+    
+    Default provider is mock. Do not switch to gmi/fal without explicit user consent.
+    ```
+
+    Claude Code invokes the Zap CLI through its bash tool. Live runs remain opt-in.
+  </Tab>
+  <Tab title="Cursor">
+    ### Cursor
+
+    Add a rule file at `.cursor/rules/zap.mdc` so every conversation in the workspace shares the same Zap context:
+
+    ```markdown
+    ---
+    description: Zap generative-video recipe conventions
+    globs: agent/skills/**, Zap.md, prompts/**
+    alwaysApply: true
+    ---
+    
+    Treat Zap.md frontmatter as executable metadata — do not move fields to prose.
+    Prompts live in `prompts/*.md` under each skill directory.
+    Default `defaults.provider: mock` for all scaffolded recipes.
+    Validate with `npx @wzrdtech/zap@0.1.0 validate` before committing.
+    Skill registry: https://zap.wzrd.tech/api/skills
+    ```
+
+    Cursor's Composer will pick up the rule automatically when editing any file inside `agent/skills/`.
+  </Tab>
+  <Tab title="OpenClaw">
+    ### OpenClaw
+
+    OpenClaw treats each `agent/skills/zap-*/` directory as a portable capability. Register the Zap workspace root in your OpenClaw agent config and point it at the reference docs:
+
+    ```yaml
+    # openclaw.yaml
+    workspace:
+      root: ./
+      skills_dir: agent/skills
+    references:
+      - path: docs/reference/schema.md
+      - path: docs/reference/cli.md
+      - url: https://zap.wzrd.tech/api/skills
+    tools:
+      shell:
+        allow:
+          - "npx @wzrdtech/zap@0.1.0 validate"
+          - "npx @wzrdtech/zap@0.1.0 run *"
+          - "npx @wzrdtech/zap@0.1.0 status *"
+    ```
+
+    OpenClaw discovers new skills by scanning `agent/skills/` for `SKILL.md` files and enqueues CLI commands through the allow-listed shell tool.
+  </Tab>
+  <Tab title="Hermes">
+    ### Hermes
+
+    Hermes uses a manifest-driven skill loader. Point it at the remote Zap skill manifest so it can hydrate the local `agent/skills/` directory on first run:
+
+    ```json
+    {
+      "skillSources": [
+        { "type": "http", "url": "https://zap.wzrd.tech/api/skills" }
+      ],
+      "cli": {
+        "validate": "npx @wzrdtech/zap@0.1.0 validate",
+        "run":      "npx @wzrdtech/zap@0.1.0 run {recipe} --json",
+        "status":   "npx @wzrdtech/zap@0.1.0 status {runId}"
+      },
+      "policies": {
+        "defaultProvider": "mock",
+        "requireExplicitLive": true
+      }
+    }
+    ```
+
+    Hermes hydrates missing skills by fetching each `?format=json` endpoint and writing files under `agent/skills/`.
+  </Tab>
+  <Tab title="Generic MCP / other">
+    ### Any MCP-capable client
+
+    For any agent that isn't listed above, provide these three pieces:
+
+    1. **Registry URL:** `https://zap.wzrd.tech/api/skills`
+    2. **CLI entry point:** `npx @wzrdtech/zap@0.1.0`
+    3. **Behavioral contract:** the six rules in [Agent Setup](/quickstart-agents#agent-contract)
+
+    The agent needs shell execution and HTTP fetch. No custom MCP server is required — the Zap CLI is itself the machine interface.
+  </Tab>
+</Tabs>
+
+## Handshake Flow
+
+Every supported agent follows the same startup sequence. If your agent isn't listed above, replicate this flow:
+
+<Steps>
+  <Step title="Fetch the skill manifest">
+    ```bash
+    curl -s https://zap.wzrd.tech/api/skills
+    ```
+
+    The response lists every published skill with its `hash`, `path`, and `downloadUrl`. Cache the manifest and diff against local `agent/skills/` on subsequent starts to detect drift.
+  </Step>
+  <Step title="Read the core framework skill">
+    ```bash
+    curl -s https://zap.wzrd.tech/api/skills/zap
+    ```
+
+    This is the master Zap SKILL — recipe grammar, CLI vocabulary, and the mock-first execution model.
+  </Step>
+  <Step title="Read the authoring skill before editing recipes">
+    ```bash
+    curl -s https://zap.wzrd.tech/api/skills/zap-authoring
+    ```
+
+    Contains schema field reference, prompt conventions, and validation rules. Load it into context before any `Zap.md` edit.
+  </Step>
+  <Step title="Validate and run">
+    ```bash
+    npx @wzrdtech/zap@0.1.0 validate
+    npx @wzrdtech/zap@0.1.0 run agent/skills/zap-<slug>/Zap.md --json
+    ```
+
+    Mock is the default. Only pass `--live` after the user has approved the quoted spend.
+  </Step>
+</Steps>
+
+## Live-Run Handshake
+
+When a creator asks for a real (paid) run, every agent must follow the same three-step handshake:
+
+<Steps>
+  <Step title="Show the quote">
+    Run in mock first with `--json` and surface the `quoteUsd` field to the user. Do not proceed if the quote exceeds `budget.cap_usd`.
+  </Step>
+  <Step title="Confirm credentials are present">
+    For CLI runs, verify `GMI_API_KEY` (or the required provider key) is exported. For web runs, verify the creator has connected a wallet and uploaded keys via [Auth & Secrets](/webapp/auth-secrets).
+  </Step>
+  <Step title="Dispatch with --live and capture the runId">
+    ```bash
+    npx @wzrdtech/zap@0.1.0 run agent/skills/zap-<slug>/Zap.md --live --json --input KEY=value
+    ```
+
+    Persist the returned `runId` so status can be polled with `zap status <runId>` or `GET /runs/<runId>`.
+  </Step>
+</Steps>
+
+<Warning>
+  Never hardcode provider keys in a session prompt, agent config, or committed file. Store keys in the user's shell environment (`GMI_API_KEY`), Supabase vault (for web runs), or a secrets manager — never in a `.mdc`, `AGENTS.md`, or JSON config that lives in the repo.
+</Warning>
+
+## Related
+
+- [Agent Setup](/quickstart-agents) — the behavioral contract every agent must follow.
+- [Agent Overview](/agent/overview) — Eve tools, pipeline grammar, and the primitive vs deterministic distinction.
+- [Providers](/concepts/providers) — the seven BYOK secret types and provider routing.
+- [GMI Cloud (BYOK)](/providers/gmi) — real live-run instructions for the primary video provider.
