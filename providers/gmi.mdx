@@ -47,7 +47,7 @@ GMI_ORG_ID=org-...
 Run the doctor command to confirm the CLI can see the key:
 
 ```bash
-npx @wzrdtech/zap@0.1.0 doctor
+npx @wzrdtech/zap@0.2.0 doctor
 ```
 
 ### Web runs — Supabase vault
@@ -258,20 +258,20 @@ Zap's runtime polls this endpoint via Upstash queue workers; you rarely need to 
 
 ```bash
 # 1. Verify your key is loaded
-npx @wzrdtech/zap@0.1.0 doctor
+npx @wzrdtech/zap@0.2.0 doctor
 
 # 2. Mock the run to see the quote first
-npx @wzrdtech/zap@0.1.0 run agent/skills/zap-my-zap/Zap.md --json
+npx @wzrdtech/zap@0.2.0 run agent/skills/zap-my-zap/Zap.md --json
 
 # 3. Approve the quote, then dispatch live
-npx @wzrdtech/zap@0.1.0 run agent/skills/zap-my-zap/Zap.md --live --json \
+npx @wzrdtech/zap@0.2.0 run agent/skills/zap-my-zap/Zap.md --live --json \
   --input PROMPT="an astronaut riding a cheetah"
 ```
 
 The live run returns a `runId`; check status with:
 
 ```bash
-npx @wzrdtech/zap@0.1.0 status <runId>
+npx @wzrdtech/zap@0.2.0 status <runId>
 ```
 
 Or open `https://zap.wzrd.tech/runs/<runId>` in the browser for the visual timeline.

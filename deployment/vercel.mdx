@@ -125,19 +125,29 @@ Set all of the following in **Vercel → Project Settings → Environment Variab
 
 ### App-Level Provider Credentials
 
-These are the Zap server's own provider credentials, used when `ZAP_PROVIDER` is set to a real provider (not `mock`).
+These are the Zap server's own provider credentials, used only for internal, non-BYOK flows (e.g. the optional VLM judge). Creator-facing live runs always use per-user BYOK keys from Supabase.
 
 | Variable | Description |
 |---|---|
 | `GMI_API_KEY` | GMI API key for the Zap server account |
 | `GMI_ORG_ID` | GMI organisation ID for the Zap server account |
-| `FAL_KEY` | Fal.ai API key for the Zap server account |
-| `AI_GATEWAY_API_KEY` | API key for the AI gateway, when routing provider calls through a centralised gateway |
-| `ZAP_PROVIDER` | Active provider mode: `mock`, `gmi`, or `fal` |
+| `FAL_KEY` | fal.ai API key for the Zap server account |
+| `AI_GATEWAY_API_KEY` | API key for the AI Gateway, used by the optional judge scoring path |
+| `ZAP_JUDGE_MODEL` | Optional model override for the AI Gateway judge (e.g. `openai/gpt-4o-mini`) |
 
-<Warning>
-  `ZAP_PROVIDER=mock` is the safe default and will not call any external provider. Only change this to `gmi` or `fal` after confirming the corresponding API keys are correctly configured and tested. Setting a real provider without valid credentials will cause all live runs to fail.
-</Warning>
+<Note>
+  Zap v0.2 removed the `mock` provider and the `ZAP_PROVIDER` global override. Recipes now target real BYOK providers (`gmi`, `fal`, `prodia`, `runware`); for zero-spend development use plan mode (`zap run` without `--live`).
+</Note>
+
+### Hosted Publish & Webhooks
+
+Required by the `/api/zaps/publish`, `/embed/*`, `/api/oembed`, and provider webhook callback routes.
+
+| Variable | Description |
+|---|---|
+| `ZAP_PUBLIC_BASE_URL` | Public base URL of the deployment (e.g. `https://zap.wzrd.tech`). Used to build stable webhook callback URLs sent to providers and the embed/oEmbed responses. |
+| `ZAP_PUBLISH_TOKEN` | Bearer token required by `POST /api/zaps/publish`. `zap deploy` sends this token when publishing a recipe. **`POST /api/zaps/publish` fails closed in production when this variable is missing.** |
+| `ZAP_PROVIDER_WEBHOOK_SECRET` | Shared secret used to sign the callback URL that Zap sends to providers. Provider webhook callback URLs are **omitted** when this variable is missing, forcing the runtime back to polling. |
 
 ### Poll Drain
 

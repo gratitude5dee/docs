@@ -35,8 +35,8 @@ Generate a first frame, storyboard, character sheet, or reference image. This is
 ```yaml
 - id: initial_frame
   kind: image.gen
-  provider: mock
-  model: mock-image
+  provider: fal
+  model: fal-ai/flux/dev
   prompt: prompts/initial-frame.md
 ```
 
@@ -261,7 +261,7 @@ Use `engine: hyperframes` when the recipe needs HTML-based composition:
 
 ## Model Rate Table
 
-The following rates are used by `quoteStep()` (sourced from `planner.ts`). Models not in this table cost `$0` (either local steps, mock models, or models without a declared rate).
+The following rates are used by `quoteStep()` (sourced from `planner.ts`). Models not in this table cost `$0` (either local steps or models without a declared rate).
 
 | Model | Billing | Rate |
 |---|---|---|

@@ -4,7 +4,7 @@ sidebarTitle: "Overview"
 description: "The Zap web app at zap.wzrd.tech hosts the creator runner, agent studio, gallery, docs, and REST API. Learn the route map and auth posture."
 ---
 
-The Zap web app, deployed at [zap.wzrd.tech](https://zap.wzrd.tech), is the primary surface for everyone who builds with or runs Zap. **Creators** use it to trigger one-click recipe runs and manage their provider vault. **Agents** (Codex, Claude Code, Cursor, OpenClaw, Hermes, and similar tools) use the skill manifest endpoints and mock run commands as a starting point. **Developers** call the REST API directly to integrate recipe execution into their own pipelines.
+The Zap web app, deployed at [zap.wzrd.tech](https://zap.wzrd.tech), is the primary surface for everyone who builds with or runs Zap. **Creators** use it to trigger one-click recipe runs and manage their BYOK provider vault. **Agents** (Codex, Claude Code, Cursor, OpenClaw, Hermes, and similar tools) use the skill manifest endpoints and plan-mode run commands as a starting point. **Developers** call the REST API directly to integrate recipe execution into their own pipelines.
 
 ## Primary Routes
 
@@ -27,8 +27,9 @@ Zap uses a tiered auth model designed to keep demos frictionless while protectin
 
 - All documentation pages (`/docs`, `/quickstart`)
 - The gallery and recipe detail pages
-- Mock demo runs via `POST /api/zaps/run` with `"live": false`
+- Plan-only demo runs via `POST /api/zaps/run` with `"live": false`
 - Skill manifest endpoints (`/api/skills`, `/api/skills/[skill]`)
+- Hosted embed pages (`/embed/[slug]`) and the oEmbed discovery endpoint (`/api/oembed`)
 
 **Protected — wallet-authenticated Supabase bearer token required**
 
@@ -43,7 +44,7 @@ Certain provider proxy surfaces and Eve-adjacent endpoints may still be protecte
 
 <CardGroup cols={2}>
   <Card title="POST /api/zaps/run" icon="play" href="/webapp/overview#post-apizapsrun">
-    Execute a recipe pipeline. Pass `"live": true` plus a bearer token to route to real providers; omit it for a zero-spend mock run.
+    Execute a recipe pipeline. Pass `"live": true` plus a bearer token to route to real providers; omit it for a zero-spend plan.
   </Card>
   <Card title="GET /api/skills" icon="list" href="/webapp/overview#get-apiskills">
     Return the full skill manifest — recipe names, hashes, and download URLs — used by agents to bootstrap a project.
@@ -78,14 +79,14 @@ Authorization: Bearer <supabase-session-token>   # required only when live=true
 }
 ```
 
-**Response (mock)**
+**Response (plan)**
 
 ```json
 {
-  "mode": "mock",
-  "status": "done",
-  "spendUsd": 0,
-  "zapUrl": "mock://zap/world-cup-entrance/Zap.mp4"
+  "mode": "plan",
+  "status": "planned",
+  "quoteUsd": 1.24,
+  "spendUsd": 0
 }
 ```
 

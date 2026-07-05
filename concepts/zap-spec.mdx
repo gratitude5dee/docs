@@ -26,13 +26,16 @@ The smallest Zap.md that passes validation looks like this:
 ```yaml
 ---
 zap: launch-trailer
-version: 1
+version: 2
 description: A short creator video.
 budget:
   estimate_usd: 0
   cap_usd: 5
 defaults:
-  provider: mock
+  provider: fal
+  models:
+    image.gen: fal-ai/flux/dev
+    video.gen: fal-ai/kling-video/v2.1/pro/image-to-video
   aspect: "9:16"
 inputs:
   PROMPT:
@@ -42,22 +45,30 @@ inputs:
 steps:
   - id: initial_frame
     kind: image.gen
-    provider: mock
-    model: mock-image
+    provider: fal
+    model: fal-ai/flux/dev
     prompt: prompts/initial-frame.md
   - id: initial_gen
     kind: video.gen
-    provider: mock
-    model: mock-video
+    provider: fal
+    model: fal-ai/kling-video/v2.1/pro/image-to-video
     inputs: [initial_frame]
     duration_s: 15
     prompt: prompts/initial-gen.md
+    retry:
+      max: 2
+      backoff_s: 3
+      fallback_provider: gmi
   - id: stitch
     kind: stitch
     inputs: [initial_gen]
 output: Zap.mp4
 ---
 ```
+
+<Note>
+  **Recipes must declare `version: 2`.** Zap v0.2 removed the deterministic `mock` provider — the only valid `provider` values are `gmi`, `fal`, `prodia`, and `runware`. Any recipe still on `version: 1` or referencing `provider: mock` will be rejected by `zap validate` and the runtime. Use plan mode (`zap run` without `--live`) for zero-spend simulation instead.
+</Note>
 
 ## Top-Level Fields
 
@@ -66,7 +77,7 @@ output: Zap.mp4
 </ParamField>
 
 <ParamField path="version" type="integer" required>
-  Schema version. Currently `1`. Zap will reject recipes with an unrecognised version number before validation begins.
+  Schema version. **Must be `2`.** Zap v0.2 uses schema v2 exclusively; recipes on `version: 1` are rejected before validation begins.
 </ParamField>
 
 <ParamField path="description" type="string" required>
@@ -87,9 +98,10 @@ output: Zap.mp4
 </ParamField>
 
 <ParamField path="defaults" type="object">
-  Fallback values applied to any step that does not declare its own `provider` or `aspect`.
+  Fallback values applied to any step that does not declare its own `provider`, `model`, or `aspect`.
 
-  - **`provider`** *(string, default: `"gmi"`)* — the provider adapter used when a step omits `provider`.
+  - **`provider`** *(enum, default: `"gmi"`)* — the provider adapter used when a step omits `provider`. One of `gmi`, `fal`, `prodia`, `runware`.
+  - **`models`** *(`Record<ZapStepKind, string>`, default: `{}`)* — per-kind default model IDs. A step without an explicit `model` falls back to `defaults.models[step.kind]`, then to the adapter's built-in default for the kind.
   - **`aspect`** *(string, optional)* — default aspect ratio forwarded to image and video models (e.g. `"9:16"`, `"16:9"`, `"1:1"`).
 </ParamField>
 
@@ -154,16 +166,53 @@ The Zap runtime enforces three rules every time a recipe is parsed or run:
   Every `{VARIABLE}` in a prompt file must be declared in `inputs`. If a prompt template references `{SELFIE}` or `{STYLE}` and those keys are absent from the `inputs` map, validation will throw `Step <id> references undeclared input {VARIABLE}` and the run will be blocked.
 </Warning>
 
+## Retry and Fallback
+
+Any provider-backed step may declare a `retry` block so the runtime automatically re-attempts transient failures — optionally against a fallback provider or model — before surfacing an error.
+
+```yaml
+steps:
+  - id: initial_gen
+    kind: video.gen
+    provider: gmi
+    model: seedance-2-0-260128
+    retry:
+      max: 2              # up to 2 additional attempts (0-8)
+      backoff_s: 3        # wait 3s between attempts (0-300)
+      fallback_provider: fal
+      fallback_model: fal-ai/kling-video/v2.1/pro/image-to-video
+```
+
+`retry.max` and `retry.backoff_s` default to `0`. `fallback_provider` and `fallback_model` are optional; when set, retries after the first failure use the fallback instead of the original combination.
+
+## Hosted Publishing
+
+Add a top-level `publish` block to control how the recipe is exposed by the hosted Zap gallery, embed page, and oEmbed endpoint on `zap.wzrd.tech`. All fields are optional; defaults produce a public embed at the recipe's slug.
+
+```yaml
+publish:
+  slug: launch-trailer            # public URL slug (defaults to `zap`)
+  visibility: public              # public | unlisted | private
+  embed:
+    enabled: true
+    theme: auto                   # auto | dark | light
+    width: 1280
+    height: 720
+    allowOrigins: ["*"]           # embed X-Frame-Options allow-list
+```
+
+Use `zap deploy` (see the [CLI reference](/reference/cli)) to publish a recipe with this block. Once deployed, the recipe is served at `https://zap.wzrd.tech/<slug>` with a companion iframe at `/embed/<slug>` and oEmbed metadata at `/api/oembed`.
+
 ## Validate and Lint Commands
 
 Run these commands after every recipe edit to catch errors before a live run:
 
 ```bash
 # Validate schema, step IDs, and declared variables
-npx @wzrdtech/zap@0.1.0 validate
+npx @wzrdtech/zap@0.2.0 validate
 
 # Run the linter (style, completeness, and budget checks)
-npx @wzrdtech/zap@0.1.0 lint
+npx @wzrdtech/zap@0.2.0 lint
 ```
 
 Both commands exit with a non-zero code on failure and print a structured error report to stdout, making them safe to run in CI.

@@ -21,11 +21,11 @@ budget:
 
 Budget enforcement happens at four distinct points in the Zap lifecycle:
 
-**1. CLI mock runs always quote $0.00**
+**1. CLI plan runs enforce the cap without spending**
 
-When running without `--live`, Zap executes in mock mode. All provider steps return deterministic zero-cost outputs. The planner still builds a full plan and prints the quote, but no real money is spent and no budget check is applied.
+When running without `--live`, Zap executes in plan mode. The planner expands all `video.extend` repeats, quotes every step against the rate table, and rejects the run if the total exceeds `cap_usd` — but no provider is contacted and no money is spent. The result reports `mode: "plan"`, `status: "planned"`, and the full `quoteUsd`.
 
-**2. CLI live plans reject over-budget runs**
+**2. CLI live runs reject over-budget runs**
 
 When `--live` is passed, the planner calls `planZapRun()` to expand all steps (including `video.extend` repeats), sums per-step costs, and calls `assertWithinBudget()`. If the total quote exceeds `cap_usd`, the run is aborted with an error before any provider is contacted:
 
@@ -55,7 +55,7 @@ The Zap planner uses a built-in rate table to estimate costs. Rates are either p
 | `seedance-2-0-260128` | perSecond | $0.07 / second |
 | `seedance-2-0-260128-upscale` | perSecond | $0.056 / second |
 
-Models not in this table (including `mock-*` models and any custom model strings) return a quote of `$0.00`. The `stitch` and `keyframes` step kinds are always local and always quote `$0.00`.
+Models not in this table (including custom model strings) return a quote of `$0.00`. The `stitch` and `keyframes` step kinds are always local and always quote `$0.00`.
 
 ## Cost Calculation
 
@@ -79,23 +79,23 @@ $0.03 + (2 × 5s × $0.07/s) = $0.03 + $0.70 = $0.73
 ```
 
 <Warning>
-  `video.extend` steps with a `repeat` block must have **all expansions counted** before submission. The planner calls `expandRepeatSteps()` to unroll repeats into individual concrete steps — each one is quoted separately. If your recipe has `repeat.max: 4` and the caller requests 4 extensions, all four are included in the quote. Always run `--json` in mock mode to verify the expanded step count and total estimate before going live.
+  `video.extend` steps with a `repeat` block must have **all expansions counted** before submission. The planner calls `expandRepeatSteps()` to unroll repeats into individual concrete steps — each one is quoted separately. If your recipe has `repeat.max: 4` and the caller requests 4 extensions, all four are included in the quote. Always run `zap run --json` (plan mode) or `zap inspect --json` to verify the expanded step count and total estimate before going live.
 </Warning>
 
-## Mock Run vs Live Run
+## Plan Run vs Live Run
 
-Use mock mode while authoring and iterating to verify the pipeline structure and see the cost estimate without spending money:
+Use plan mode while authoring and iterating to verify the pipeline structure and see the cost estimate without spending money:
 
 ```bash
-# Mock run — zero cost, deterministic outputs, full plan printed as JSON
-npx @wzrdtech/zap@0.1.0 run zap-world-cup-entrance --json
+# Plan run — zero spend, validated schema, priced quote
+npx @wzrdtech/zap@0.2.0 run zap-world-cup-entrance --json
 ```
 
-Switch to live mode only after the creator has reviewed and approved the spend:
+Switch to live mode only after the creator has reviewed and approved the spend and a BYOK key is saved via `zap keys add`:
 
 ```bash
 # Live run — real providers, real cost, budget check enforced
-npx @wzrdtech/zap@0.1.0 run zap-world-cup-entrance --live --input SELFIE=./selfie.png
+npx @wzrdtech/zap@0.2.0 run zap-world-cup-entrance --live --input SELFIE=./selfie.png
 ```
 
 <Tip>

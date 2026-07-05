@@ -21,14 +21,15 @@ The Zap CLI uses a consistent flag syntax across all commands. Most flags that c
 </ParamField>
 
 <ParamField query="--live" type="boolean">
-  Allow real provider spend on the `run` command. Without this flag, `run` executes in mock mode: no external API calls are made, all steps resolve instantly, and `quoteUsd` is `0`. With `--live`, the CLI computes a real spend quote from per-model rates and rejects the run if the quote exceeds `budget.cap_usd`.
+  Allow real provider spend on the `run` command. Without this flag, `run` executes in **plan mode**: the recipe is validated against schema v2 and priced against the built-in rate table, but no external API calls are made and the result carries `mode: "plan"`, `status: "planned"`. With `--live`, the CLI loads BYOK secrets from the local credential store, computes the real quote, rejects the run if it exceeds `budget.cap_usd`, then dispatches each step to its provider adapter and polls to completion.
 
   ```bash
+  zap keys add fal fal_key --value "$FAL_KEY"
   zap run agent/skills/zap-my-zap/Zap.md --live --input PROMPT="sunset"
   ```
 
   <Warning>
-    A live run sets `status: "queued"` and requires provider API keys to be configured. Use the web runtime to submit and monitor provider jobs.
+    A live run requires a saved BYOK key for the target provider — configure keys with `zap keys add` before passing `--live`.
   </Warning>
 </ParamField>
 
@@ -41,9 +42,7 @@ The Zap CLI uses a consistent flag syntax across all commands. Most flags that c
     --input STYLE="cinematic"
   ```
 
-  In mock mode, required inputs that are not supplied receive placeholder defaults:
-  - Text inputs default to `mock-<lowercased-key>` (e.g. `mock-prompt`)
-  - Image inputs default to `mock://input/<KEY>` (e.g. `mock://input/IMAGE`)
+  In plan mode, required inputs that are not supplied receive placeholder defaults (`mock-<lowercased-key>`) purely for cost estimation. In live mode, all `required: true` inputs must be supplied or the run is rejected.
 </ParamField>
 
 <ParamField query="--extend" type="number">
@@ -144,56 +143,51 @@ Several CLI behaviors can be controlled through environment variables, useful fo
 
 | Variable | Effect |
 |----------|--------|
-| `ZAP_LINT_ALLOW_LIVE_DEFAULT=1` | Silence the `zap lint` warning about non-mock `defaults.provider` |
+| `ZAP_TOKEN` | Bearer token used by `zap login`, `zap deploy`, and `zap keys sync`. |
+| `ZAP_API_URL` | Override the hosted API base URL (default: `https://zap.wzrd.tech`). |
+| `ZAP_PUBLIC_BASE_URL` | Base URL used by `zap embed` when generating iframe / oEmbed snippets. |
+| `ZAP_JUDGE_MODEL` | Optional AI Gateway model override for the VLM judge. |
 
-This can be set in your `.env` or `.env.local` file (automatically loaded by the CLI on startup) or exported in your shell:
-
-```bash
-ZAP_LINT_ALLOW_LIVE_DEFAULT=1 zap lint
-```
+Set these in your `.env` or `.env.local` file (automatically loaded by the CLI on startup) or export them in your shell.
 
 ---
 
 ## JSON Output Schema
 
-When `--json` is passed to the `run` command, the output follows this schema:
+When `--json` is passed to the `run` command, the output follows this schema. Plan mode (the default) is shown; live runs replace `mode` with `"live"`, add `actualUsd` / `assetUrl` / `providerRequestId` on each step, and populate a top-level `zapUrl`.
 
 ```json
 {
   "live": false,
-  "message": "Mock Zap run completed.",
-  "mode": "mock",
-  "quoteUsd": 0,
+  "message": "Zap plan completed. No provider work submitted.",
+  "mode": "plan",
+  "quoteUsd": 1.24,
   "runId": "run_m3x9k2_a1b2c3",
-  "status": "done",
+  "status": "planned",
   "steps": [
     {
       "kind": "image.gen",
-      "model": "mock-image",
-      "provider": "mock",
-      "quoteUsd": 0,
-      "status": "done",
+      "model": "fal-ai/flux/dev",
+      "provider": "fal",
+      "quoteUsd": 0.04,
       "stepId": "initial_frame"
     },
     {
       "kind": "video.gen",
-      "model": "mock-video",
-      "provider": "mock",
-      "quoteUsd": 0,
-      "status": "done",
+      "model": "fal-ai/kling-video/v2.1/pro/image-to-video",
+      "provider": "fal",
+      "quoteUsd": 1.20,
       "stepId": "initial_gen"
     },
     {
       "kind": "stitch",
       "model": "local",
-      "provider": "mock",
+      "provider": "fal",
       "quoteUsd": 0,
-      "status": "done",
       "stepId": "stitch"
     }
   ],
-  "zap": "my-zap",
-  "zapUrl": "mock://zap/my-zap/run_m3x9k2_a1b2c3/Zap.mp4"
+  "zap": "my-zap"
 }
 ```
 
@@ -201,26 +195,28 @@ When `--json` is passed to the `run` command, the output follows this schema:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `live` | boolean | Whether this was a live or mock run |
-| `message` | string | Human-readable status message |
-| `mode` | `"mock"` \| `"live"` | Execution mode |
-| `quoteUsd` | number | Total estimated spend in USD (always `0` in mock mode) |
-| `runId` | string | Unique run identifier; also the directory name under `.zap/runs/` |
-| `status` | `"done"` \| `"queued"` | `"done"` for mock runs; `"queued"` for live runs awaiting web runtime |
-| `steps` | array | Per-step execution detail (see below) |
-| `zap` | string | The recipe slug |
-| `zapUrl` | string \| undefined | Output URL; populated for mock runs; omitted for live runs until the web runtime completes |
+| `live` | boolean | `true` when `--live` was passed. |
+| `message` | string | Human-readable status message. |
+| `mode` | `"plan"` \| `"live"` | Execution mode. |
+| `quoteUsd` | number | Total estimated spend in USD (enforced against `budget.cap_usd`). |
+| `runId` | string | Unique run identifier; also the directory name under `.zap/runs/`. |
+| `status` | `"planned"` \| `"done"` | `"planned"` in plan mode; `"done"` after a successful live dispatch. |
+| `steps` | array | Per-step planned + actual detail (see below). |
+| `zap` | string | The recipe slug. |
+| `zapUrl` | string \| undefined | Populated only for successful live runs — points to the final stitched asset. |
 
 **Step object fields:**
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `kind` | string | Step type, e.g. `image.gen`, `video.gen`, `stitch` |
-| `model` | string | Model identifier; `"local"` for non-provider steps |
-| `provider` | string | Provider name; `"mock"` in mock mode |
-| `quoteUsd` | number | Per-step spend estimate; `0` in mock mode |
-| `status` | string | Step status |
-| `stepId` | string | Step ID from the recipe |
+| `kind` | string | Step type, e.g. `image.gen`, `video.gen`, `stitch`. |
+| `model` | string | Model identifier resolved from step → `defaults.models[kind]` → adapter default. |
+| `provider` | string | Provider name (`gmi`, `fal`, `prodia`, `runware`, or `local` for stitch/keyframes). |
+| `quoteUsd` | number | Per-step spend estimate. |
+| `actualUsd` | number | Live only — cost reported by the provider on completion. |
+| `assetUrl` | string | Live only — URL of the persisted output asset. |
+| `providerRequestId` | string | Live only — provider-side job identifier for debugging. |
+| `stepId` | string | Step ID from the recipe. |
 
 ---
 

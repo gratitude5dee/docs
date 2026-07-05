@@ -1,16 +1,16 @@
 ---
-title: "Zap CLI Commands: Complete @wzrdtech/zap Reference Guide"
+title: "Zap CLI Commands: Complete @wzrdtech/zap 0.2 Reference"
 sidebarTitle: "CLI Commands"
-description: "Complete reference for all 16 zap commands: init, new, validate, lint, run, status, dev, studio, add, docs, skills, doctor, info, upgrade, and more."
+description: "Complete reference for every zap command in v0.2.0: init, new, validate, run, keys, deploy, embed, inspect, improve, login, and more."
 ---
 
-The `@wzrdtech/zap` package exposes a `zap` binary that provides a full suite of commands for creating, validating, linting, and running Zap recipes. **Node 24.x is required.** Install globally or invoke directly with `npx @wzrdtech/zap@0.1.0 <command>`.
+The `@wzrdtech/zap` package exposes a `zap` binary that provides a full suite of commands for creating, validating, linting, planning, running, and publishing Zap recipes. **Node 24.x is required.** Install globally or invoke directly with `npx @wzrdtech/zap@0.2.0 <command>`.
 
 ## Installation
 
 ```bash
 # Use directly without installing:
-npx @wzrdtech/zap@0.1.0 <command>
+npx @wzrdtech/zap@0.2.0 <command>
 
 # Or install globally:
 npm install -g @wzrdtech/zap
@@ -52,13 +52,13 @@ Unless `--empty` is passed, a sample recipe (defaults to `hello-world`) is scaff
 **Example**
 
 ```bash
-npx @wzrdtech/zap@0.1.0 init my-app --non-interactive
+npx @wzrdtech/zap@0.2.0 init my-app --non-interactive
 # Initialized Zap project at /home/user/my-app
 ```
 
 ```bash
 # With --json
-npx @wzrdtech/zap@0.1.0 init my-app --json
+npx @wzrdtech/zap@0.2.0 init my-app --json
 ```
 
 ```json
@@ -85,7 +85,7 @@ Scaffolds a new recipe skill directory at `agent/skills/zap-<slug>/`. The slug i
 The following files are created inside `agent/skills/zap-<slug>/`:
 
 - `SKILL.md` — skill description for AI routing
-- `Zap.md` — recipe file with YAML frontmatter and a default `mock` pipeline
+- `Zap.md` — recipe file with `version: 2` frontmatter targeting fal by default (image.gen + video.gen + stitch)
 - `prompts/initial-frame.md` — image generation prompt template
 - `prompts/initial-gen.md` — video generation prompt template
 
@@ -188,9 +188,9 @@ Runs policy checks against one or more recipe files, emitting warnings (not erro
 
 Policy checks include:
 
-- **Live provider default** — warns if `defaults.provider` is set to anything other than `mock`. Silence with `ZAP_LINT_ALLOW_LIVE_DEFAULT=1`.
-- **Positive budget cap** — warns if `budget.cap_usd` is zero or negative
-- **Stitch step presence** — warns if the recipe does not end with a `stitch` step
+- **Provider allow-list** — warns if `defaults.provider` is not one of `gmi`, `fal`, `prodia`, or `runware`.
+- **Positive budget cap** — warns if `budget.cap_usd` is zero or negative.
+- **Stitch step presence** — warns if the recipe does not end with a `stitch` step.
 
 Lint warnings do not fail the process; use `validate` for hard errors.
 
@@ -205,24 +205,24 @@ Lint warnings do not fail the process; use `validate` for hard errors.
 ```bash
 zap lint
 # ok agent/skills/zap-my-zap/Zap.md (my-zap)
-# warn agent/skills/zap-live-test/Zap.md (live-test)
-#   - defaults.provider is live; mock is safer for published templates.
+# warn agent/skills/zap-old/Zap.md (old)
+#   - defaults.provider must be one of gmi, fal, prodia, or runware.
 ```
 
 ```bash
-zap lint agent/skills/zap-live-test/Zap.md --json
+zap lint agent/skills/zap-old/Zap.md --json
 ```
 
 ```json
 {
   "results": [
     {
-      "file": "agent/skills/zap-live-test/Zap.md",
+      "file": "agent/skills/zap-old/Zap.md",
       "ok": false,
       "warnings": [
-        "defaults.provider is live; mock is safer for published templates."
+        "defaults.provider must be one of gmi, fal, prodia, or runware."
       ],
-      "zap": "live-test"
+      "zap": "old"
     }
   ]
 }
@@ -240,15 +240,16 @@ zap run <Zap.md|slug> [--live] [--input KEY=VALUE] [--extend <n>] [--json]
 
 **Description**
 
-Executes a recipe pipeline. By default runs in **mock mode**: no real provider calls are made and all steps resolve immediately with mock URLs. Pass `--live` to plan real provider spend.
+Executes a recipe pipeline. By default runs in **plan mode**: the recipe is validated and priced, but no provider calls are made and the result reports `mode: "plan"`, `status: "planned"`. Pass `--live` to dispatch real provider jobs using saved BYOK credentials.
 
 **Pipeline execution:**
 
-1. Parses and validates the `Zap.md` frontmatter
-2. Resolves inputs — in mock mode, required inputs without values receive placeholder defaults (`mock-<name>`)
+1. Parses and validates the `Zap.md` frontmatter (schema v2)
+2. Resolves inputs — in plan mode, required inputs without values receive placeholder defaults (`mock-<name>`); in live mode, all `required: true` inputs must be supplied
 3. Expands `video.extend` steps according to `--extend <n>` (or the step's `repeat.default`)
-4. Computes a spend quote for live runs; rejects if the quote exceeds `budget.cap_usd`
-5. Saves the result to `.zap/runs/<runId>/result.json`
+4. Computes a spend quote; rejects if the quote exceeds `budget.cap_usd`
+5. For `--live`: loads BYOK secrets from the local credential store, submits each step to its provider adapter, polls to completion, and persists assets under `.zap/runs/<runId>/assets/`
+6. Saves the result to `.zap/runs/<runId>/result.json`
 
 **Budget enforcement:**  
 If the computed quote exceeds `budget.cap_usd`, the run is rejected with an error:  
@@ -265,65 +266,41 @@ If the computed quote exceeds `budget.cap_usd`, the run is rejected with an erro
 | `--extend <n>` | Number of `video.extend` step repetitions |
 | `--json` | Emit the full run result as JSON |
 
-**Example — mock run**
+**Example — plan run (default, zero spend)**
 
 ```bash
 zap run agent/skills/zap-my-zap/Zap.md --input PROMPT="sunset over mountains"
-# Mock Zap run completed. run_m3x9k2_a1b2c3
-```
-
-```bash
-zap run agent/skills/zap-my-zap/Zap.md --input PROMPT="sunset over mountains" --json
+# Zap plan completed. No provider work submitted. run_m3x9k2_a1b2c3
 ```
 
 ```json
 {
   "live": false,
-  "message": "Mock Zap run completed.",
-  "mode": "mock",
-  "quoteUsd": 0,
+  "message": "Zap plan completed. No provider work submitted.",
+  "mode": "plan",
+  "quoteUsd": 1.24,
   "runId": "run_m3x9k2_a1b2c3",
-  "status": "done",
+  "status": "planned",
   "steps": [
-    {
-      "kind": "image.gen",
-      "model": "mock-image",
-      "provider": "mock",
-      "quoteUsd": 0,
-      "status": "done",
-      "stepId": "initial_frame"
-    },
-    {
-      "kind": "video.gen",
-      "model": "mock-video",
-      "provider": "mock",
-      "quoteUsd": 0,
-      "status": "done",
-      "stepId": "initial_gen"
-    },
-    {
-      "kind": "stitch",
-      "model": "local",
-      "provider": "mock",
-      "quoteUsd": 0,
-      "status": "done",
-      "stepId": "stitch"
-    }
+    { "stepId": "initial_frame", "kind": "image.gen", "provider": "fal", "model": "fal-ai/flux/dev", "quoteUsd": 0.04 },
+    { "stepId": "initial_gen",   "kind": "video.gen", "provider": "fal", "model": "fal-ai/kling-video/v2.1/pro/image-to-video", "quoteUsd": 1.20 },
+    { "stepId": "stitch",        "kind": "stitch",    "provider": "fal", "quoteUsd": 0 }
   ],
-  "zap": "my-zap",
-  "zapUrl": "mock://zap/my-zap/run_m3x9k2_a1b2c3/Zap.mp4"
+  "zap": "my-zap"
 }
 ```
 
-**Example — live plan**
+**Example — live run**
 
 ```bash
+# Prerequisite: save a BYOK key with `zap keys add`
+zap keys add fal fal_key --value "$FAL_KEY"
+
 zap run agent/skills/zap-my-zap/Zap.md --live --input PROMPT="sunset over mountains"
-# Live provider run planned. Use the web runtime to submit provider jobs. run_m3x9k2_a1b2c3
 ```
 
 <Note>
-  A live run sets `status: "queued"` and `mode: "live"`. `zapUrl` is omitted until the web runtime processes the job. `quoteUsd` reflects the estimated spend computed from per-model rates.
+  A live run submits each provider-backed step to its adapter, polls to completion, and downloads assets to `.zap/runs/<runId>/assets/`. Successful steps report `status: "done"` with `actualUsd` and `assetUrl` fields; failures throw and abort the run.
 </Note>
 
 ---
@@ -356,7 +333,7 @@ zap status
 
 ```bash
 zap status run_m3x9k2_a1b2c3
-# run_m3x9k2_a1b2c3 done mock://zap/my-zap/run_m3x9k2_a1b2c3/Zap.mp4
+# run_m3x9k2_a1b2c3 planned
 ```
 
 ```bash
@@ -366,12 +343,155 @@ zap status run_m3x9k2_a1b2c3 --json
 ```json
 {
   "runId": "run_m3x9k2_a1b2c3",
-  "status": "done",
-  "mode": "mock",
+  "status": "planned",
+  "mode": "plan",
   "zap": "my-zap",
-  "zapUrl": "mock://zap/my-zap/run_m3x9k2_a1b2c3/Zap.mp4"
+  "quoteUsd": 1.24
 }
 ```
+
+---
+
+## `zap keys [add|list|test|remove|sync]`
+
+**Usage**
+
+```bash
+zap keys add <provider> <secretType> --value <value>
+zap keys list [--json]
+zap keys test [<provider>] [--json]
+zap keys remove <secretType> [--json]
+zap keys sync [--api-url <url>] [--token <token>] [--json]
+```
+
+**Description**
+
+Manages the local encrypted BYOK credential store at `~/.zap/credentials.json`. Keys are encrypted with a machine-derived passphrase and only the last four characters are ever printed. The store is used automatically by `zap run --live` to sign provider requests.
+
+| Subcommand | Behavior |
+|---|---|
+| `add` | Encrypt and save a `<secretType>` value under `<provider>`. Value may be provided via `--value`, positional argument, or the uppercased env var (e.g. `FAL_KEY`). |
+| `list` | Print saved secrets with `provider/secretType ****<last4>` and `updatedAt`. Values are never printed. |
+| `test` | Round-trip validate each saved key against the provider's identity endpoint. Without a `<provider>`, tests all four (`gmi`, `fal`, `prodia`, `runware`). Exits non-zero if any key fails. |
+| `remove` | Delete a secret by type (e.g. `fal_key`). |
+| `sync` | Upload all locally saved secrets to the hosted `/api/secrets` endpoint. Requires `zap login` or `ZAP_TOKEN`. |
+
+**Example**
+
+```bash
+zap keys add gmi gmi_api_key --value "$GMI_API_KEY"
+# Saved gmi/gmi_api_key ****a1b2
+
+zap keys list
+# gmi/gmi_api_key ****a1b2
+# fal/fal_key     ****c3d4
+
+zap keys test
+# ok gmi
+# ok fal
+# fail prodia: no secret configured
+```
+
+---
+
+## `zap login` / `zap logout`
+
+**Usage**
+
+```bash
+zap login --token <token> [--api-url https://zap.wzrd.tech] [--json]
+zap logout [--json]
+```
+
+**Description**
+
+`zap login` persists a hosted API token (and optional custom API URL) to `~/.zap/auth.json`. The stored token authenticates `zap deploy` and `zap keys sync` against the hosted publish and secret-vault endpoints on `zap.wzrd.tech`. Falls back to the `ZAP_TOKEN` environment variable when a saved token is absent.
+
+`zap logout` deletes `~/.zap/auth.json`. The local credential store is untouched.
+
+---
+
+## `zap inspect <Zap.md>`
+
+**Usage**
+
+```bash
+zap inspect <slug|Zap.md> [--extend <n>] [--json]
+```
+
+**Description**
+
+Prints the planned pipeline without persisting a run: schema version, budget, resolved `defaults`, per-step `provider/model/kind` and per-step USD quote, total `quoteUsd`, and the recipe's `publish` block. Useful for CI cost checks and for previewing which fallback provider a step will use.
+
+**Example**
+
+```bash
+zap inspect agent/skills/zap-my-zap/Zap.md
+# my-zap v2 quote $1.24
+# initial_frame fal/fal-ai/flux/dev image.gen $0.04
+# initial_gen   fal/fal-ai/kling-video/v2.1/pro/image-to-video video.gen $1.20
+# stitch        fal/local stitch $0.00
+```
+
+---
+
+## `zap deploy <Zap.md>`
+
+**Usage**
+
+```bash
+zap deploy <slug|Zap.md> [--draft] [--api-url <url>] [--token <token>] [--json]
+```
+
+**Description**
+
+Bundles the recipe (frontmatter + prompt files) and publishes it to the hosted Zap gallery via `POST /api/zaps/publish`. The recipe becomes reachable at `https://zap.wzrd.tech/<slug>`, its embed at `/embed/<slug>`, and its oEmbed metadata at `/api/oembed`.
+
+- With `--draft`, the deploy is created with `status: "draft"` and hidden from the public gallery.
+- Without a saved token (`zap login`) and without `ZAP_TOKEN`, the CLI writes an **offline deployment bundle** to `.zap/deployments/<slug>.json` instead of calling the API. Ship the bundle later once a token is available.
+
+**Example**
+
+```bash
+zap login --token "$ZAP_TOKEN"
+zap deploy agent/skills/zap-my-zap/Zap.md
+# Deployed my-zap to https://zap.wzrd.tech/my-zap
+```
+
+---
+
+## `zap embed <slug>`
+
+**Usage**
+
+```bash
+zap embed <slug> [--base-url https://zap.wzrd.tech] [--json]
+```
+
+**Description**
+
+Prints ready-to-paste embed metadata for a published Zap: an `<iframe>` snippet pointing at `<base-url>/embed/<slug>` and the corresponding oEmbed discovery URL. `--json` returns both plus the slug.
+
+**Example**
+
+```bash
+zap embed my-zap
+# <iframe src="https://zap.wzrd.tech/embed/my-zap" width="1280" height="720" loading="lazy" allow="clipboard-write; fullscreen"></iframe>
+```
+
+---
+
+## `zap improve <slug>`
+
+**Usage**
+
+```bash
+zap improve <slug|Zap.md> [--write] [--json]
+```
+
+**Description**
+
+Proposes a recipe version bump backed by evidence — Convex run history and feedback records when `CONVEX_URL` is configured, plus local `.zap/runs` traces as an offline fallback. Reports lint warnings, step-level failure counts, and a suggested next `version`. Pass `--write` to apply the version bump in place.
 
 ---
 
@@ -627,7 +747,7 @@ zap info
 # cwd: /home/user/my-app
 # node: 24.1.0
 # platform: linux x64
-# version: 0.1.0
+# version: 0.2.0
 ```
 
 ```bash
@@ -639,7 +759,7 @@ zap info --json
   "cwd": "/home/user/my-app",
   "node": "24.1.0",
   "platform": "linux x64",
-  "version": "0.1.0"
+  "version": "0.2.0"
 }
 ```
 
@@ -655,7 +775,7 @@ zap upgrade
 
 **Description**
 
-Prints upgrade instructions. In v0.1, the CLI does **not** auto-upgrade. Reinstall the package to get the latest version:
+Prints upgrade instructions. In v0.2, the CLI does **not** auto-upgrade. Reinstall the package to get the latest version:
 
 ```bash
 npm install -g @wzrdtech/zap@latest
@@ -665,7 +785,7 @@ npm install --save-dev @wzrdtech/zap@latest
 
 ```bash
 zap upgrade
-# Upgrade checks are intentionally local in v0.1. Reinstall @wzrdtech/zap to upgrade.
+# Upgrade checks are local in v0.2. Reinstall @wzrdtech/zap or run npm update @wzrdtech/zap to upgrade.
 ```
 
 ---
