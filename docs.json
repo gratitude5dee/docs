@@ -107,6 +107,12 @@
             ]
           }
         ]
+      },
+      {
+        "tab": "Browser Use (Coming Soon)",
+        "pages": [
+          "browser-use-support"
+        ]
       }
     ]
   }
