@@ -12,7 +12,7 @@ The Zap Studio is an Eve-powered agent workspace accessible at `/studio`. It pro
 
 The studio chat is the primary authoring environment. When you open `/studio`, Eve loads with awareness of every installed recipe and the full Zap tool surface. You can ask Eve to:
 
-- Run an existing recipe in mock or live mode
+- Run an existing recipe in plan or live mode
 - Create a new recipe from a description
 - Stitch multiple outputs together
 - Extend a video with additional frames
@@ -22,7 +22,7 @@ Eve communicates its progress through structured tool-call responses, so you alw
 
 ### `/zap/[slug]` — Creator One-Click Runner
 
-The `/zap/[slug]` route is the creator-facing side of the studio surface. Each page renders a single recipe identified by its slug (for example, `/zap/world-cup-entrance`). Creators see a run form pre-populated with the recipe's input contract; they fill in their values, choose mock or live, and click **Run**. No CLI knowledge required.
+The `/zap/[slug]` route is the creator-facing side of the studio surface. Each page renders a single recipe identified by its slug (for example, `/zap/world-cup-entrance`). Creators see a run form pre-populated with the recipe's input contract; they fill in their values, choose plan or live, and click **Run**. No CLI knowledge required.
 
 The slug maps directly to a skill directory under `agent/skills/`. Any recipe you author in the studio chat and save will immediately appear as its own `/zap/[slug]` page.
 
@@ -31,7 +31,7 @@ The slug maps directly to a skill directory under `agent/skills/`. Any recipe yo
 Start the Next.js dev server with the Zap CLI or directly via npm:
 
 ```bash
-npx @wzrdtech/zap@0.1.0 studio
+npx @wzrdtech/zap@0.2.0 studio
 # or
 npm run dev
 ```
@@ -62,12 +62,12 @@ All tool calls are visible in the chat transcript, so you can inspect the exact 
 When a run is dispatched — whether from the studio chat, the `/zap/[slug]` runner, or the REST API — Zap records durable run state in Convex and assigns a unique `runId`. Navigate to `/runs/[runId]` to see:
 
 - **Step states** — which pipeline steps have completed, are pending, or have errored
-- **Spend so far** — cumulative provider spend in USD (zero for mock runs)
+- **Spend so far** — cumulative provider spend in USD (zero for plan runs)
 - **Output URLs** — direct links to generated images, videos, and audio as each step completes
 - **Error details** — provider error messages surfaced for failed steps
 
 The page updates in real time via Convex subscriptions. You can share a `/runs/[runId]` URL with anyone — it is publicly readable.
 
 <Tip>
-  Mock runs in the studio are zero-spend and publicly accessible. No wallet, no provider keys, and no budget approval are required. Use mock mode freely to prototype recipes, validate input contracts, and demonstrate flows before committing to a live run.
+  Plan runs in the studio are zero-spend and publicly accessible. No wallet, no provider keys, and no budget approval are required. Use plan mode freely to prototype recipes, validate input contracts, and demonstrate flows before committing to a live run.
 </Tip>

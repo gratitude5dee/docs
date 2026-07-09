@@ -8,13 +8,13 @@ Zap is a lightweight content-agent framework where every generative video recipe
 
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="bolt" href="/quickstart">
-    Scaffold a project, author your first recipe, and run a zero-cost mock pipeline in under five minutes.
+    Scaffold a project, author your first recipe, and plan a pipeline with zero spend in under five minutes.
   </Card>
   <Card title="Zap Spec" icon="file-code" href="/concepts/zap-spec">
     Full reference for every frontmatter field: inputs, steps, budget, defaults, and output.
   </Card>
   <Card title="Providers" icon="plug" href="/concepts/providers">
-    Configure GMI Cloud, fal.ai, or the built-in deterministic mock adapter as your pipeline backend.
+    Route steps through GMI Cloud, fal.ai, Prodia, or Runware — all bring-your-own-key with per-step retry and fallback.
   </Card>
   <Card title="CLI Reference" icon="terminal" href="/reference/cli">
     Every command — init, new, validate, lint, run, status, doctor, and more — with flags and examples.
@@ -62,12 +62,12 @@ The `Zap.md` frontmatter is the single source of truth for the pipeline: step or
 
 | Layer | Contents |
 |---|---|
-| **CLI** | `init`, `new`, `validate`, `lint`, `run`, `status`, `add`, `docs`, `skills`, `doctor`, `info`, `upgrade` |
-| **Web studio** | Creator-friendly Zap runner at `/zap/<slug>` and agent workspace at `/studio` |
-| **Runtime** | Convex run state, Upstash idempotency + polling queues, GMI Cloud and fal.ai provider adapters, optional HyperFrames stitching |
-| **Workspace packages** | `@wzrdtech/zap` (publishable CLI), core schema/planning, provider queues, agent helpers |
+| **CLI** | `init`, `new`, `validate`, `lint`, `run`, `inspect`, `status`, `keys`, `login`, `deploy`, `embed`, `improve`, `add`, `docs`, `skills`, `doctor`, `info`, `upgrade` |
+| **Web studio** | Creator-friendly Zap runner at `/zap/<slug>`, agent workspace at `/studio`, hosted embeds at `/embed/<slug>` |
+| **Runtime** | Convex run state, Upstash idempotency + polling queues, GMI/fal/Prodia/Runware BYOK adapters, optional HyperFrames stitching, hosted publish/embed/oEmbed |
+| **Workspace packages** | `@wzrdtech/zap` (publishable CLI, v0.2), `@wzrdtech/core` (schema + planner), `@wzrdtech/providers` (BYOK adapters), agent helpers |
 | **Registry** | Curated skill templates installable via `zap add <name>` |
 
 <Note>
-  **Mock mode is the default — it costs nothing.** Every `zap run` and `npm run zap:run` command uses the deterministic mock adapter unless you explicitly pass `--live`. Mock mode fills required inputs with deterministic placeholders, executes the full step graph, writes a local result to `.zap/runs/`, and returns a `mock://` asset URL. No provider keys, no spend, no surprises. Add `--live` only after provider credentials and a budget cap are in place.
+  **Plan mode is the default — it costs nothing.** Every `zap run` and `npm run zap:run` command runs in plan mode unless you explicitly pass `--live`. Plan mode validates the recipe against schema v2, fills required inputs with deterministic placeholders, prices every step against the built-in rate table, enforces `budget.cap_usd`, and writes a local result to `.zap/runs/`. No provider keys, no spend, no surprises. Add `--live` only after saving a BYOK key with `zap keys add`.
 </Note>

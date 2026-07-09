@@ -38,10 +38,10 @@ All agents drive Zap through the same CLI. Two commands are enough for a full fl
 
 ```bash
 # Validate any recipe in the current project
-npx @wzrdtech/zap@0.1.0 validate
+npx @wzrdtech/zap@0.2.0 validate
 
-# Run a recipe (defaults to mock — zero cost)
-npx @wzrdtech/zap@0.1.0 run agent/skills/zap-<slug>/Zap.md --json
+# Run a recipe (defaults to plan mode — zero spend)
+npx @wzrdtech/zap@0.2.0 run agent/skills/zap-<slug>/Zap.md --json
 ```
 
 Agents should always pass `--json` so output is machine-parseable. The result envelope contains `runId`, `status`, `zapUrl`, and a per-step breakdown — no additional API is needed to observe progress.
@@ -57,9 +57,9 @@ Agents should always pass `--json` so output is machine-parseable. The result en
     ```text
     Use the Zap skills from https://zap.wzrd.tech/api/skills.
     Read AGENTS.md and agent/skills/zap-authoring/SKILL.md before editing any Zap.md.
-    Validate with:  npx @wzrdtech/zap@0.1.0 validate
-    Run mock with:  npx @wzrdtech/zap@0.1.0 run agent/skills/zap-<slug>/Zap.md --json
-    Never pass --live without explicit user approval.
+    Validate with:  npx @wzrdtech/zap@0.2.0 validate
+    Plan with:      npx @wzrdtech/zap@0.2.0 run agent/skills/zap-<slug>/Zap.md --json
+    Never pass --live without explicit user approval and a saved BYOK key.
     ```
 
     Codex will use the CLI directly through its shell tool; no MCP server is required.
@@ -78,10 +78,10 @@ Agents should always pass `--json` so output is machine-parseable. The result en
     Remote registry: https://zap.wzrd.tech/api/skills
     
     Before committing any recipe change, run:
-      npx @wzrdtech/zap@0.1.0 validate
-      npx @wzrdtech/zap@0.1.0 lint
+      npx @wzrdtech/zap@0.2.0 validate
+      npx @wzrdtech/zap@0.2.0 lint
     
-    Default provider is mock. Do not switch to gmi/fal without explicit user consent.
+    Default to plan mode (`zap run` without `--live`) — schema v2 removed the `mock` provider. Do not pass `--live` without explicit user consent and a saved BYOK key.
     ```
 
     Claude Code invokes the Zap CLI through its bash tool. Live runs remain opt-in.
@@ -100,8 +100,8 @@ Agents should always pass `--json` so output is machine-parseable. The result en
     
     Treat Zap.md frontmatter as executable metadata — do not move fields to prose.
     Prompts live in `prompts/*.md` under each skill directory.
-    Default `defaults.provider: mock` for all scaffolded recipes.
-    Validate with `npx @wzrdtech/zap@0.1.0 validate` before committing.
+    `defaults.provider` must be one of `gmi`, `fal`, `prodia`, `runware` (schema v2 rejects `mock`). Run in plan mode by default; `--live` requires an explicit user request and a saved BYOK key via `zap keys add`.
+    Validate with `npx @wzrdtech/zap@0.2.0 validate` before committing.
     Skill registry: https://zap.wzrd.tech/api/skills
     ```
 
@@ -124,9 +124,9 @@ Agents should always pass `--json` so output is machine-parseable. The result en
     tools:
       shell:
         allow:
-          - "npx @wzrdtech/zap@0.1.0 validate"
-          - "npx @wzrdtech/zap@0.1.0 run *"
-          - "npx @wzrdtech/zap@0.1.0 status *"
+          - "npx @wzrdtech/zap@0.2.0 validate"
+          - "npx @wzrdtech/zap@0.2.0 run *"
+          - "npx @wzrdtech/zap@0.2.0 status *"
     ```
 
     OpenClaw discovers new skills by scanning `agent/skills/` for `SKILL.md` files and enqueues CLI commands through the allow-listed shell tool.
@@ -142,12 +142,12 @@ Agents should always pass `--json` so output is machine-parseable. The result en
         { "type": "http", "url": "https://zap.wzrd.tech/api/skills" }
       ],
       "cli": {
-        "validate": "npx @wzrdtech/zap@0.1.0 validate",
-        "run":      "npx @wzrdtech/zap@0.1.0 run {recipe} --json",
-        "status":   "npx @wzrdtech/zap@0.1.0 status {runId}"
+        "validate": "npx @wzrdtech/zap@0.2.0 validate",
+        "run":      "npx @wzrdtech/zap@0.2.0 run {recipe} --json",
+        "status":   "npx @wzrdtech/zap@0.2.0 status {runId}"
       },
       "policies": {
-        "defaultProvider": "mock",
+        "defaultMode": "plan",
         "requireExplicitLive": true
       }
     }
@@ -161,7 +161,7 @@ Agents should always pass `--json` so output is machine-parseable. The result en
     For any agent that isn't listed above, provide these three pieces:
 
     1. **Registry URL:** `https://zap.wzrd.tech/api/skills`
-    2. **CLI entry point:** `npx @wzrdtech/zap@0.1.0`
+    2. **CLI entry point:** `npx @wzrdtech/zap@0.2.0`
     3. **Behavioral contract:** the six rules in [Agent Setup](/quickstart-agents#agent-contract)
 
     The agent needs shell execution and HTTP fetch. No custom MCP server is required — the Zap CLI is itself the machine interface.
@@ -185,7 +185,7 @@ Every supported agent follows the same startup sequence. If your agent isn't lis
     curl -s https://zap.wzrd.tech/api/skills/zap
     ```
 
-    This is the master Zap SKILL — recipe grammar, CLI vocabulary, and the mock-first execution model.
+    This is the master Zap SKILL — recipe grammar, CLI vocabulary, and the plan-first execution model.
   </Step>
   <Step title="Read the authoring skill before editing recipes">
     ```bash
@@ -196,11 +196,11 @@ Every supported agent follows the same startup sequence. If your agent isn't lis
   </Step>
   <Step title="Validate and run">
     ```bash
-    npx @wzrdtech/zap@0.1.0 validate
-    npx @wzrdtech/zap@0.1.0 run agent/skills/zap-<slug>/Zap.md --json
+    npx @wzrdtech/zap@0.2.0 validate
+    npx @wzrdtech/zap@0.2.0 run agent/skills/zap-<slug>/Zap.md --json
     ```
 
-    Mock is the default. Only pass `--live` after the user has approved the quoted spend.
+    Plan mode is the default. Only pass `--live` after the user has approved the quoted spend and a BYOK key is saved via `zap keys add`.
   </Step>
 </Steps>
 
@@ -210,14 +210,14 @@ When a creator asks for a real (paid) run, every agent must follow the same thre
 
 <Steps>
   <Step title="Show the quote">
-    Run in mock first with `--json` and surface the `quoteUsd` field to the user. Do not proceed if the quote exceeds `budget.cap_usd`.
+    Run in plan mode first with `--json` and surface the `quoteUsd` field to the user. Do not proceed if the quote exceeds `budget.cap_usd`.
   </Step>
   <Step title="Confirm credentials are present">
-    For CLI runs, verify `GMI_API_KEY` (or the required provider key) is exported. For web runs, verify the creator has connected a wallet and uploaded keys via [Auth & Secrets](/webapp/auth-secrets).
+    For CLI runs, verify the target provider's key is present in the local credential store — `zap keys list` should show `gmi/gmi_api_key`, `fal/fal_key`, etc. For web runs, verify the creator has connected a wallet and uploaded keys via [Auth & Secrets](/webapp/auth-secrets).
   </Step>
   <Step title="Dispatch with --live and capture the runId">
     ```bash
-    npx @wzrdtech/zap@0.1.0 run agent/skills/zap-<slug>/Zap.md --live --json --input KEY=value
+    npx @wzrdtech/zap@0.2.0 run agent/skills/zap-<slug>/Zap.md --live --json --input KEY=value
     ```
 
     Persist the returned `runId` so status can be polled with `zap status <runId>` or `GET /runs/<runId>`.

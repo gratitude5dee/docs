@@ -196,22 +196,21 @@ When a recipe specifies `stitch.engine: hyperframes`, the runtime follows this f
 
 ---
 
-## Live vs Mock Runs
+## Plan vs Live Runs
 
-The `mock` provider adapter returns deterministic, zero-cost outputs on every call. It is used by default in new recipes (`defaults.provider: mock`) and for all demo runs on the web.
+The default `zap run` executes in **plan mode**: the recipe is validated against schema v2, `video.extend` chains are expanded, and every step is priced against the built-in rate table — but no provider is contacted. Zap v0.2 removed the deterministic `mock` provider entirely.
 
-| Behavior | Mock | Live |
+| Behavior | Plan | Live |
 |---|---|---|
-| Provider API calls | None — outputs are deterministic fixtures | Real calls to GMI / fal |
+| Provider API calls | None — the runtime returns a priced simulation | Real calls to GMI / fal / Prodia / Runware |
 | Cost | $0 | Billed per `quoteStep()` rates |
-| Output | Fixture files | Real generated assets |
-| Local CLI storage | `.zap/runs/<runId>/` | `.zap/runs/<runId>/` |
-| Web storage | Convex + Blob (fixture URLs) | Convex + Blob (real URLs) |
-| Auth required | No — public | Yes — wallet-authenticated Supabase token |
+| Result mode | `mode: "plan"`, `status: "planned"` | `mode: "live"`, `status: "done"` |
+| Output | None (no `zapUrl`) | Real generated assets, stored under `.zap/runs/<runId>/assets/` (CLI) or Blob (web) |
+| Auth required | No — public | Yes — wallet-authenticated Supabase token (web) or saved `zap keys` (CLI) |
 | `--live` flag required | No | Yes (CLI) / `live: true` (API) |
 
 <Note>
-  Mock creator demos are **public and zero-spend** — no wallet or API keys are required. Live runs that call real provider APIs require a wallet-authenticated Supabase bearer token and a funded provider account.
+  Plan-mode demos are **public and zero-spend** — no wallet or API keys are required. Live runs that call real provider APIs require a wallet-authenticated Supabase bearer token (web) or a BYOK key saved with `zap keys add` (CLI), plus a funded provider account.
 </Note>
 
 ---

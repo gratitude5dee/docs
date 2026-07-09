@@ -44,7 +44,7 @@ Top-level fields of the `zapSpecSchema`. All fields are required unless a defaul
 </ParamField>
 
 <ParamField path="version" type="integer" required>
-  Positive integer recipe version. Increment when making breaking changes to step structure or inputs. Stored on every Convex run record alongside the recipe slug.
+  Schema version. **Must be `2` in Zap v0.2.** The literal is enforced by `zapSpecSchema.version = z.literal(2)`; recipes on `version: 1` are rejected. Stored on every Convex run record alongside the recipe slug.
 </ParamField>
 
 <ParamField path="description" type="string" required>
@@ -59,8 +59,12 @@ Top-level fields of the `zapSpecSchema`. All fields are required unless a defaul
   Positive hard cap in USD. `assertWithinBudget()` throws if the planned run cost exceeds this value before any provider jobs are submitted.
 </ParamField>
 
-<ParamField path="defaults.provider" type="string" default="gmi">
-  Default provider for all steps that do not declare their own `provider`. Must be a registered provider adapter ID. Built-in values: `gmi`, `fal`, `mock`.
+<ParamField path="defaults.provider" type='"gmi" | "fal" | "prodia" | "runware"' default="gmi">
+  Default provider adapter for steps that omit their own `provider`. `mock` was removed in Zap v0.2 — use plan mode (`zap run` without `--live`) for zero-spend simulation instead.
+</ParamField>
+
+<ParamField path="defaults.models" type="Record<ZapStepKind, string>" default="{}">
+  Per-kind default model IDs (e.g. `{ "image.gen": "fal-ai/flux/dev", "video.gen": "seedance-2-0-260128" }`). A step without an explicit `model` resolves in this order: `step.model` → `defaults.models[step.kind]` → the adapter's built-in default for the kind.
 </ParamField>
 
 <ParamField path="defaults.aspect" type="string">
@@ -73,6 +77,20 @@ Top-level fields of the `zapSpecSchema`. All fields are required unless a defaul
 
 <ParamField path="steps" type="ZapStep[]" required>
   Ordered array of pipeline steps. At least 1 step is required. Steps are executed in dependency order derived from their `inputs` references. See [Step Kinds](/reference/step-kinds) for full step documentation.
+</ParamField>
+
+<ParamField path="publish" type="object">
+  Optional hosted-publish configuration consumed by `zap deploy` and the `/embed`, `/api/oembed`, and `/api/zaps` routes on `zap.wzrd.tech`.
+
+  | Sub-field | Type | Default | Description |
+  |---|---|---|---|
+  | `slug` | string | recipe `zap` slug | Public URL slug. Must match `^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$`. |
+  | `visibility` | `"public"` \| `"unlisted"` \| `"private"` | `"public"` | Discovery scope for the hosted gallery. |
+  | `embed.enabled` | boolean | `true` | Enable the `/embed/<slug>` iframe endpoint. |
+  | `embed.theme` | `"auto"` \| `"dark"` \| `"light"` | `"auto"` | Embed theme. |
+  | `embed.width` | integer | `1280` | Embed iframe width in pixels (240–3840). |
+  | `embed.height` | integer | `720` | Embed iframe height in pixels (240–2160). |
+  | `embed.allowOrigins` | string[] | `["*"]` | Origin allow-list for the embed's `X-Frame-Options`. |
 </ParamField>
 
 <ParamField path="output" type="string" default="Zap.mp4">
@@ -128,8 +146,8 @@ Every step in the `steps` array is validated against `zapStepSchema`.
   The generation category for this step. Determines which provider capability is invoked. See [Step Kinds](/reference/step-kinds) for descriptions of all 11 values.
 </ParamField>
 
-<ParamField path="provider" type="string">
-  Override the `defaults.provider` for this step only. Use `mock` for zero-cost development steps within an otherwise live recipe.
+<ParamField path="provider" type='"gmi" | "fal" | "prodia" | "runware"'>
+  Override the `defaults.provider` for this step only. For zero-cost development use plan mode (`zap run` without `--live`) rather than a mock provider — `mock` was removed in Zap v0.2.
 </ParamField>
 
 <ParamField path="model" type="string">
@@ -150,6 +168,17 @@ Every step in the `steps` array is validated against `zapStepSchema`.
 
 <ParamField path="candidates" type="integer">
   Number of generation candidates to request from the provider. Integer between 1 and 16. When `>1`, the runtime generates multiple outputs and the best is selected (optionally via RLHF scoring).
+</ParamField>
+
+<ParamField path="retry" type="object">
+  Bounded retry and fallback configuration for this step. When any single attempt fails, the runtime waits `backoff_s` seconds and retries up to `max` additional times before surfacing the error. If `fallback_provider` (and optionally `fallback_model`) are set, retries after the first failure switch to the fallback combination.
+
+  | Sub-field | Type | Default | Description |
+  |---|---|---|---|
+  | `max` | integer 0–8 | `0` | Additional attempts after the initial submission. |
+  | `backoff_s` | number 0–300 | `0` | Wait between attempts, in seconds. |
+  | `fallback_provider` | `"gmi"` \| `"fal"` \| `"prodia"` \| `"runware"` | — | Provider used for retries after the first failure. |
+  | `fallback_model` | string | — | Model used with `fallback_provider`. |
 </ParamField>
 
 <ParamField path="repeat" type="object">
@@ -313,13 +342,16 @@ type ZapPlan = {
 ```yaml
 ---
 zap: launch-trailer
-version: 1
+version: 2
 description: A short creator video.
 budget:
   estimate_usd: 0
   cap_usd: 5
 defaults:
-  provider: mock
+  provider: fal
+  models:
+    image.gen: fal-ai/flux/dev
+    video.gen: fal-ai/kling-video/v2.1/pro/image-to-video
 inputs:
   PROMPT:
     type: textarea
@@ -327,16 +359,16 @@ inputs:
 steps:
   - id: initial_frame
     kind: image.gen
-    provider: mock
-    model: mock-image
     prompt: prompts/initial-frame.md
   - id: initial_gen
     kind: video.gen
-    provider: mock
-    model: mock-video
     inputs: [initial_frame]
     duration_s: 15
     prompt: prompts/initial-gen.md
+    retry:
+      max: 2
+      backoff_s: 3
+      fallback_provider: gmi
   - id: stitch
     kind: stitch
     inputs: [initial_gen]

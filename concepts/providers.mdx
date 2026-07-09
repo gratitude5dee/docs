@@ -1,61 +1,80 @@
 ---
 title: "AI Provider Routing and BYOK Keys for Zap Pipelines"
 sidebarTitle: "Providers"
-description: "Zap routes each pipeline step to the mock, GMI, fal, or BYOK adapter. Learn provider priority, required keys, and the seven supported secret types."
+description: "Zap routes each pipeline step to a real BYOK adapter — GMI, fal, Prodia, or Runware. Learn provider priority, required secret types, and how plan mode replaces mock."
 ---
 
-Zap separates recipe planning from provider execution. When a run is submitted, the provider router inspects each step's `provider` field (or the recipe's `defaults.provider` fallback) and selects the matching adapter. This decoupling means the same recipe can be executed against the mock adapter for zero-cost development, switched to `gmi` for live production runs, and later migrated to `fal` without changing a single step definition.
+Zap separates recipe planning from provider execution. When a run is submitted, the provider router inspects each step's `provider` field (or the recipe's `defaults.provider` fallback) and selects the matching adapter. This decoupling means the same recipe can be planned for free (dry-run priced against the model rate table) and later dispatched live against any of the four supported BYOK providers without changing a single step definition.
 
-## Provider Priority for v1
+<Note>
+  **Zap v0.2 removed the `mock` provider.** The only valid values for `provider` and `defaults.provider` are `gmi`, `fal`, `prodia`, and `runware`. For zero-spend development, use **plan mode** — `zap run` without `--live` — which validates the recipe, expands `video.extend` chains, and prints a priced plan without dispatching any provider jobs.
+</Note>
 
-Zap v1 recognises seven provider adapters, grouped into three tiers:
+## Supported Providers
 
-### `mock`
-
-Deterministic, zero-cost outputs designed for documentation, automated tests, and unauthenticated demos. The mock adapter returns placeholder media assets with predictable filenames and durations. No API key is required. Use mock mode for all recipe authoring and CI validation.
+Zap v0.2 recognises four production provider adapters. All are bring-your-own-key (BYOK) — Zap does not proxy or resell provider capacity.
 
 ### `gmi`
 
-The primary live image and video provider. Routes to [GMI Cloud](https://console.gmicloud.ai) infrastructure and settles on the flagship Seedance 2.0 (`seedance-2-0-260128`) model for video. Requires a `gmi_api_key` (and optionally `gmi_org_id`) stored in Supabase or supplied via environment variable. This is the default provider when `defaults.provider` is omitted from the recipe.
+The **default** live provider for image and video. Routes to [GMI Cloud](https://console.gmicloud.ai) and settles on the flagship Seedance 2.0 (`seedance-2-0-260128`) model for video. Requires a `gmi_api_key` (and optionally `gmi_org_id`). This is the value used when `defaults.provider` is omitted.
 
 For the full BYOK setup, request/response shapes, T2V / I2V / R2V modes, and resolution pricing, see [GMI Cloud (BYOK)](/providers/gmi).
 
 ### `fal`
 
-The secondary live provider. Routes to the fal.ai platform. Requires a `fal_key`. Used when a step specifies `provider: fal` explicitly, or as a fallback when `gmi` is unavailable for a given model.
+Secondary live provider for image, video, and audio via the fal.ai queue. Requires a `fal_key`. Common defaults: `fal-ai/flux/dev` for `image.gen`, `fal-ai/kling-video/v2.1/pro/image-to-video` for `video.gen`.
 
-### `runware`, `prodia`, `openrouter`, `ai_gateway`
+### `prodia`
 
-BYOK-ready (Bring Your Own Key) provider types. These are not in the default routing chain but can be targeted explicitly via step-level `provider` fields when the creator supplies the corresponding secret. See the [BYOK Secret Types](#byok-secret-types) table below.
+Async image generation through Prodia's `/v2/job` API. Requires a `prodia_token`.
 
-## Setting the Provider via Environment Variable
+### `runware`
 
-For CLI runs you can override the provider for all steps at once using `ZAP_PROVIDER`:
+Async image generation with Runware's `getResponse` polling API. Requires a `runware_key`.
 
-```bash
-ZAP_PROVIDER=mock npx @wzrdtech/zap@0.1.0 run world-cup-entrance --json
-```
+## Plan Mode vs Live Mode
 
-This is the recommended way to run mock pipelines in CI without modifying the recipe file.
-
-## Running Live with GMI (BYOK)
-
-When you are ready to submit to a real provider, export your GMI key and pass the `--live` flag:
+`zap run` defaults to **plan mode**: schema validation, `video.extend` expansion, per-step USD estimation against the built-in rate table, and budget enforcement — but **no provider calls**. The result is stored under `.zap/runs/<runId>/result.json` with `mode: "plan"` and `status: "planned"`.
 
 ```bash
-export GMI_API_KEY="sk-gmi-..."
-export GMI_ORG_ID="org-..."   # optional
+# Zero-spend plan
+npx @wzrdtech/zap@0.2.0 run agent/skills/zap-my-zap/Zap.md --json
 
-npx @wzrdtech/zap@0.1.0 run world-cup-entrance --live --input SELFIE=./selfie.png
+# Same command, dispatched live
+npx @wzrdtech/zap@0.2.0 run agent/skills/zap-my-zap/Zap.md --live --input PROMPT="…"
 ```
 
-The CLI will build a full plan, print the cost quote, enforce the budget cap, and then dispatch each step to its configured provider adapter. Provider keys must be available in the environment before this command is run.
+Live runs require both a saved BYOK key for the target provider and all `required: true` inputs. Plan mode fills missing required inputs with deterministic placeholders (`mock-<name>`) purely for cost estimation.
 
-Under the hood, the GMI adapter POSTs each step to `https://console.gmicloud.ai/api/v1/ie/requestqueue/apikey/requests` with a `Bearer` token and polls for completion. See [GMI Cloud (BYOK)](/providers/gmi) for the full request/response contract, Seedance 2.0 parameters, and per-resolution pricing.
+## Storing Keys — CLI
+
+The CLI keeps a local encrypted credential store under `~/.zap/credentials.json`. Manage entries with `zap keys`:
+
+```bash
+# Save a key (last 4 characters are printed on success)
+zap keys add gmi gmi_api_key --value "$GMI_API_KEY"
+zap keys add fal fal_key --value "$FAL_KEY"
+
+# List saved keys (values are never printed)
+zap keys list
+
+# Round-trip check a key against the provider
+zap keys test fal
+
+# Remove a key
+zap keys remove fal_key
+
+# Push local keys to the hosted Supabase vault (requires `zap login`)
+zap keys sync
+```
+
+## Storing Keys — Web
+
+For runs initiated from `zap.wzrd.tech`, keys are stored server-side per creator wallet through the `zap-user-secrets` Supabase Edge Function. Keys are encrypted at rest and only decrypted immediately before dispatching a step. See [Supabase Secrets Setup](/deployment/supabase-secrets) and [Auth & Secrets](/webapp/auth-secrets).
 
 ## BYOK Secret Types
 
-The following secret types are recognised by the Zap key store. On the web platform these are stored in Supabase and looked up per user before a live run begins.
+The following secret types are recognised by both the CLI credential store and the Supabase vault:
 
 | Secret Key | Provider | Description |
 | --- | --- | --- |
@@ -63,25 +82,18 @@ The following secret types are recognised by the Zap key store. On the web platf
 | `gmi_org_id` | GMI Cloud | Optional organisation ID scoping requests to a GMI workspace |
 | `fal_key` | fal.ai | API key for fal.ai model inference |
 | `runware_key` | Runware | API key for Runware image generation |
-| `prodia_key` | Prodia | API key for Prodia image generation |
-| `openrouter_key` | OpenRouter | API key for OpenRouter LLM and multimodal routing |
-| `ai_gateway_api_key` | AI Gateway | API key for a self-hosted or cloud AI Gateway instance |
-
-Provider keys are **never required for mock runs**. The mock adapter ignores all key configuration and returns deterministic outputs regardless of whether any secrets are present.
-
-## Web Live Runs
-
-Web-initiated live runs require two things in addition to CLI live runs:
-
-1. **Wallet authentication** — the user must be signed in and have confirmed spend approval in the Zap web UI.
-2. **Supabase-stored provider keys** — keys are retrieved server-side from the authenticated user's secret store before the run job is enqueued. The client never handles raw API keys.
-
-See [Supabase Secrets Setup](/deployment/supabase-secrets) for instructions on storing and rotating provider keys.
+| `prodia_token` | Prodia | API token for Prodia image generation |
+| `openrouter_key` | OpenRouter | API key for OpenRouter LLM and multimodal routing (used by the optional VLM judge) |
+| `ai_gateway_api_key` | AI Gateway | API key for a self-hosted or cloud AI Gateway instance (used by the optional VLM judge) |
 
 <Note>
   Provider adapters return **run-safe metadata only**: step IDs, status strings, output URLs, observed cost, and error messages. They never return large media blobs to the agent context. Media assets are stored at the URL returned by the adapter and fetched lazily by the web UI or downstream steps.
 </Note>
 
+## Judge Scoring
+
+Steps may declare an optional `judge` block to request an automated VLM quality score after the step completes. Judge scoring routes through the AI Gateway (`ai_gateway_api_key`) with an optional model override via the `ZAP_JUDGE_MODEL` environment variable. When no gateway key is configured the runtime records a deterministic `heuristic` feedback score instead of a VLM label.
+
 <Warning>
-  Never commit provider API keys to source control. Do not hardcode `gmi_api_key`, `fal_key`, or any other secret in `Zap.md`, prompt files, or `SKILL.md`. Store all keys in Supabase (for web runs) or environment variables (for CLI runs), and rotate them immediately if accidentally exposed. See [Supabase Secrets Setup](/deployment/supabase-secrets) for the recommended key storage pattern.
+  Never commit provider API keys to source control. Do not hardcode `gmi_api_key`, `fal_key`, or any other secret in `Zap.md`, prompt files, or `SKILL.md`. Store all keys via `zap keys add` (CLI) or the Supabase vault (web), and rotate them immediately if accidentally exposed. See [Supabase Secrets Setup](/deployment/supabase-secrets) for the recommended key storage pattern.
 </Warning>
