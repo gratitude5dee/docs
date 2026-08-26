@@ -1,0 +1,62 @@
+---
+title: "Memory"
+description: "Durable, tenant-scoped memory with session scratch space — OpenViking on-VM by default, Mem0 and Zep as consent-gated SaaS plugins."
+---
+
+Zap agents remember. The memory subsystem gives every runtime a durable, tenant-scoped store with session-scoped scratch space, exposed through one contract (`@wzrdtech/zap-memory`) that every provider implements.
+
+## Memory is content, and content stays on the VM
+
+Memory content lives **inside the tenant VM** by default. The control plane never stores or logs memory text; it sees counts and byte totals only.
+
+- `remember`, `search`, `read`, `addResource` are available in-VM and to the self-host CLI only. A `MemoryService` instantiated on the managed control plane throws `MEMORY_CONTENT_OFF_VM` for these content methods.
+- `status`, `forget`, `wipeSession` work everywhere (metadata / deletion).
+- `export` from the control plane requires explicit consent recorded on the runtime row (`zap memory export --consent`); in-VM export always works — your data is always extractable.
+
+## Providers
+
+| Provider | Locality | Default | Consent |
+| --- | --- | --- | --- |
+| OpenViking | on-vm | heavy profile | not needed |
+| Mem0 | saas | opt-in | `consent: true` required |
+| Zep | saas | opt-in | `consent: true` required |
+
+SaaS providers move content off the VM by definition, so they refuse to mount without `consent: true`. All three pass the same contract test suite.
+
+## Scopes, durability, and wipe
+
+```ts
+const scope = { tenantId: "acme", runtimeId: "rt-1", sessionId: "sess-42" };
+
+await memory.remember(scope, { text: "prefers metric units", durable: true });
+await memory.remember(scope, { text: "scratch note" }); // session-scoped
+
+await memory.wipeSession(scope);
+// durable tenant memory survives; the scratch note is gone
+```
+
+Durable items are tenant-scoped and survive `wipeSession`. Items remembered with a `sessionId` and without `durable: true` are session-scoped and removed by `wipeSession` for that session only.
+
+## Composing a provider
+
+```ts
+import { compose } from "@wzrdtech/zap-runtime";
+import { openviking } from "@wzrdtech/zap-runtime/memory";
+
+// heavy profile default — loopback OpenViking, nothing to configure
+await compose([openviking()]);
+
+// SaaS opt-in: consent is explicit, keys come from the runtime secret store
+await compose([mem0({ consent: true, apiKey })]);
+```
+
+## CLI
+
+```bash
+zap memory status [--json]
+zap memory search <query> [--limit n] [--json]
+zap memory export [--json]
+zap memory forget <uri> [--json]
+```
+
+`--json` output never contains secrets. Memory operations are local reads/writes and never trigger live provider spend. `export(scope)` streams every item as `MemoryItem` records — after `wipeSession`, export returns durable tenant memory only.

@@ -1,0 +1,39 @@
+---
+title: "Kernel and plugins"
+description: "The Zap kernel composes runtimes from plugins with reversible effects, services, and events."
+---
+
+`@wzrdtech/zap-kernel` is the composition layer under every Zap runtime. A runtime is a tree of plugins mounted into a **context**; each plugin can register services, subscribe to events, and acquire resources through reversible effects.
+
+## Plugin shape
+
+A plugin is `{ name, inject, apply(ctx, config) }`. `apply` receives the context and registers what the plugin provides:
+
+- **Services** — named capabilities other plugins consume (for example `sandbox`, `memory`, `gateway`, `mediafs`, `pay`).
+- **Events** — typed pub/sub across the plugin tree.
+- **Effects** — every acquisition (a sandbox, socket, watcher, timer, meter reservation, hosted port, file lock) is registered inside `ctx.effect(setup → dispose)`, so tearing down a context releases everything it acquired.
+
+## Every plugin registers an inverse
+
+Disposal is a contract, not a convention: fork/dispose cycles must leave zero live handles. The build runs leak tests that fork and dispose contexts a thousand times and fail on any leaked resource.
+
+## Two kernel instances
+
+A composed runtime involves two kernels:
+
+- the **caller kernel** on your machine (or the control plane), which resolves the plugin graph, drives runs, and proxies events; and
+- the **in-VM kernel** inside the tenant sandbox, which executes lanes, tools, and the agent host.
+
+No model loop ever runs outside the tenant VM; the control plane only proxies.
+
+## Composing
+
+```ts
+import { compose } from "@wzrdtech/zap-runtime";
+import { box } from "@wzrdtech/zap-sandbox";
+import { openviking } from "@wzrdtech/zap-runtime/memory";
+
+await compose([box({ template: "zap-heavy" }), openviking()]);
+```
+
+Or declaratively in `Runtime.md`, resolved by [`zap compose`](/reference/cli#runtime-workflow). Both forms produce the same deterministic plugin tree and lock hash.

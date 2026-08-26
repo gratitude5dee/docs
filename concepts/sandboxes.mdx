@@ -1,0 +1,42 @@
+---
+title: "Box-first sandboxes and isolation"
+description: "One sandbox contract over every execution provider. Box is the default; everything else mounts behind the same interface."
+---
+
+Zap's sandbox contract (`@wzrdtech/zap-sandbox`) is one interface — `SandboxProvider` / `SandboxHandle` / `SandboxSpec` / `ExecResult` — over every execution provider. Box (ascii.dev) is the default; every other provider implements the same contract, and GPUs are opt-in lane plugins.
+
+## Isolation classes
+
+- **vm / microvm** — hardware-virtualized guests (Box, E2B Firecracker microVMs, microsandbox KVM). Strongest boundary; the kernel is not shared.
+- **container** — namespaced Linux containers (Daytona, Cloudflare Sandbox, Modal, Docker). Shared host kernel; rely on the provider's hardening.
+- **process** — a confined host process (`local`, lane confinement via systemd-run). Development and self-host only.
+- **hyperlight-wasm** — wasm micro-guests for the `wasm` lane.
+- **none** — catalog stubs; `acquire()` throws `CATALOG_STUB` before anything runs.
+
+## Provider tiers
+
+- **first-party** — implements the contract and runs the conformance suite (fake-backed in CI, live variant opt-in with the provider's key).
+- **catalog-stub** — manifest + docs page + `doctor` row with `verified: false`; no execution path.
+
+## Capability matrix
+
+| provider | tier | isolation | snapshot | fork | stop/resume | ports | private ports | gpu | docker |
+| -------- | ---- | --------- | -------- | ---- | ----------- | ----- | ------------- | --- | ------ |
+| [box](/sandboxes/box) | first-party | vm | yes | yes | yes/yes | yes | yes | no | yes |
+| [namespace](/sandboxes/namespace) | first-party | vm | no | no | yes/yes | yes | no | no | yes |
+| [selfhost](/sandboxes/selfhost) | first-party | microvm | yes | no | no/no | no | no | no | no |
+| [microsandbox](/sandboxes/microsandbox) | first-party | microvm | yes | no | yes/no | no | no | no | no |
+| [e2b](/sandboxes/e2b) | first-party | microvm | yes | no | yes/yes | yes | no | no | no |
+| [daytona](/sandboxes/daytona) | first-party | container | yes | no | yes/yes | yes | yes | no | no |
+| [cloudflare](/sandboxes/cloudflare) | first-party | container | yes | no | no/no | yes | no | no | no |
+| [modal (gpu lane)](/sandboxes/modal) | first-party | container | no | no | no/no | no | no | yes | no |
+| [docker](/sandboxes/docker) | first-party | container | no | no | yes/yes | no | no | no | yes |
+| [catalog stubs](/sandboxes/catalog-stubs) | catalog-stub | none | no | no | no/no | no | no | — | no |
+
+## Machine starts are the scarce resource
+
+Box counts create, fork, *and resume* against plan ceilings. The runtime uses one `stop_after` sweeper, idle timeouts of 15–30 minutes, and treats `429 start_limit_reached` as a first-class queued state.
+
+## GPU lanes
+
+The `modal` adapter mounts only when `Runtime.md` declares a `gpu:<class>` lane or a media step declares `gpu`. Every acquire uses `purpose: "lane"` and is billed by the `gpu_second` SKU per class. GPUs never become the default substrate.

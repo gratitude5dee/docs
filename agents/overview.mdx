@@ -1,0 +1,61 @@
+---
+title: "Agents as code"
+description: "A Zap agent is a synchronous TypeScript render function. Hooks attach capabilities; the runtime executes models and tools inside your VM."
+---
+
+A Zap agent is a synchronous TypeScript render function. Instructions render on CPU for free; model thinking and GPU work are plugins that only run inside your tenant's runtime VM. Plan-only is the default — side-effecting tools are planned, never executed, until you pass `--live` with a payer configured.
+
+## The programming model
+
+```ts
+import { defineAgent, useInput, useModel, useTool } from "@wzrdtech/zap-agent";
+import { transcode } from "./tools";
+
+export default defineAgent(function Agent() {
+  const input = useInput();
+  useModel("openrouter/anthropic/claude-sonnet-4.6");
+  if (/transcode/i.test(input.text ?? "")) useTool(transcode);
+  return input.text
+    ? `Do the work. Plan-only unless --live. Request: ${input.text}`
+    : "You are a Zap CPU agent. Plan first.";
+});
+```
+
+Three rules define the model:
+
+1. **Agent functions are reactive renders.** They return instructions (a string) for the next model step. They do not call models or tools. `useModel` selects a model; it never calls one. `useTool` declares a tool; it never runs one.
+2. **Hooks may be conditional and must be synchronous.** Side effects belong in tools. Tools that do CPU work go through `sandbox.exec`.
+3. **Capabilities rebuild from empty on every render.** A tool declared inside an `if` exists only when the condition holds.
+
+Render runs on every turn, before every model step, and is strictly free of I/O — `fetch`, timers, `process.env` reads, and async render functions throw guard errors (`AGENT_RENDER_IO`, `AGENT_RENDER_ASYNC`).
+
+## Project layout
+
+```text
+agents/<id>/agent.ts      # the render function
+agents/<id>/tools/*.ts    # defineTool implementations
+agents/<id>/connections.ts
+skills/<skill>/SKILL.md   # auto-packed skills
+project.ts                # defineProject: agent id → module map
+```
+
+`zap deploy` bundles the project with esbuild into an immutable, sha-addressed deployment with a value-free manifest. Build lint catches `ZAP_BUILD_SECRET_LITERAL`, `ZAP_BUILD_ORIGIN_NOT_HTTPS`, `ZAP_BUILD_PROCESS_ENV`, `ZAP_BUILD_ASYNC_AGENT`, `ZAP_BUILD_UNDECLARED_SUBAGENT`, and `ZAP_BUILD_UNDECLARED_MCP`.
+
+## Where things run
+
+The render executes on the Zap kernel; every tool that does CPU work runs on the sandbox through `sandbox.exec`. No model loop runs outside the tenant VM. Outbound HTTP goes through [declared connections](/concepts/secrets-connections); secrets are write-only.
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="bolt" href="/agents/quickstart">
+    Your first agent in five minutes.
+  </Card>
+  <Card title="Render model" icon="arrows-rotate" href="/agents/render-model">
+    Hooks, guards, and per-render capability rebuild.
+  </Card>
+  <Card title="Transcode example" icon="film" href="/agents/transcode-example">
+    A complete agent with a sandboxed ffmpeg tool.
+  </Card>
+  <Card title="API reference" icon="book" href="/reference/agent-api">
+    Every export of @wzrdtech/zap-agent.
+  </Card>
+</CardGroup>

@@ -1,0 +1,80 @@
+---
+title: "Example: transcode agent"
+description: "A complete agent — a sandboxed ffmpeg tool, a conditional subagent, and a webhook connection — from the Zap repository's canonical example."
+---
+
+This is the canonical `agents/transcode` example that ships in the Zap repository. It shows the full shape of an agent: a tool that does CPU work on the sandbox, conditional capabilities, and a declared connection.
+
+## agent.ts
+
+```ts
+import {
+  defineAgent, defineTool, useInput, useModel, useTool, useSubagent,
+} from "@wzrdtech/zap-agent";
+
+export const transcode = defineTool({
+  name: "ffmpeg_transcode",
+  description: "Transcode a file on the Zap CPU sandbox",
+  input: {
+    type: "object",
+    properties: { path: { type: "string" } },
+    required: ["path"],
+    additionalProperties: false,
+  },
+  async run({ input, sandbox, signal, reportProgress }) {
+    await reportProgress({ phase: "exec" });
+    return sandbox.exec(
+      ["ffmpeg", "-i", String(input.path), "-y", "/zap/fs/out.mp4"],
+      { signal },
+    );
+  },
+});
+
+export default defineAgent(function Agent() {
+  const input = useInput();
+  useModel("openrouter/anthropic/claude-sonnet-4.6");
+  if (/transcode|ffmpeg/i.test(input.text ?? "")) useTool(transcode);
+  if (/research/i.test(input.text ?? "")) useSubagent("researcher");
+  return input.text
+    ? `Do the work. Plan-only unless --live. Request: ${input.text}`
+    : "You are a Zap CPU agent. Plan first.";
+});
+```
+
+## connections.ts
+
+```ts
+import { defineConnection, useSecret, bearer } from "@wzrdtech/zap-agent";
+
+export const webhook = defineConnection({
+  id: "webhook",
+  origin: "https://hooks.example.com",
+  methods: ["POST"],
+  pathPrefix: "/zap/",
+  headers: { Authorization: bearer(useSecret("WEBHOOK_TOKEN")) },
+});
+```
+
+## project.ts
+
+```ts
+import { defineProject } from "@wzrdtech/zap-agent";
+
+export default defineProject({
+  agents: {
+    transcode: () => import("./agents/transcode/agent"),
+    researcher: () => import("./agents/researcher/agent"),
+  },
+});
+```
+
+## Run it
+
+```bash
+zap agent render --agent transcode --input "transcode in.mp4" --json
+zap deploy --watch
+zap session --agent transcode --json "transcode in.mp4 to h264"   # plan-only
+zap session --agent transcode --live --json "transcode in.mp4"    # executes ffmpeg
+```
+
+In plan-only mode the `ffmpeg_transcode` call streams as a `tool.planned` event with its input and estimate; with `--live` (and a payer) it executes on the sandbox through the `ffmpeg` lane and streams `tool.call` / `tool.result`.

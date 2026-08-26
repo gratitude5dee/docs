@@ -1,0 +1,37 @@
+---
+title: "API and skills store"
+description: "Attach 100+ catalog APIs through three API-store plugins, and ship reusable skills into every harness on the runtime."
+---
+
+## API store
+
+Zap v5 attaches catalog APIs through three API-store plugins instead of first-party adapters:
+
+- `apistore.context7` — hosted docs/search MCP at `https://mcp.context7.com/mcp` (`CONTEXT7_API_KEY`).
+- `apistore.open-connector` — self-hosted connector MCP inside the VM at `http://127.0.0.1:3000/mcp` (loopback only).
+- `apistore.composio` — hosted MCP session minted by the control plane (entity = tenant id).
+
+First-party rows are Zap gateway/media/memory providers that ship in the runtime itself: OpenRouter, Vercel AI Gateway, OpenAI, Anthropic, xAI, GMI, fal, Prodia, Runware, Replicate, ElevenLabs, Mem0, Zep, Thirdweb, Modal.
+
+The catalog spans 102 APIs. Highlights by route:
+
+| via | examples |
+| --- | --- |
+| `open-connector` | HTTP request, webhooks, RSS, SMTP/IMAP email, iCal, SQLite/PostgreSQL/MySQL/Redis, S3-compatible storage, FTP/SFTP, WebDAV |
+| `composio` | GitHub, GitLab, Linear, Jira, Notion, Slack, Discord, Telegram, Gmail, Google Drive/Sheets/Docs, Stripe, Shopify, Salesforce, HubSpot, Figma, X, LinkedIn, YouTube, Vercel, Datadog, Sentry, Snowflake, BigQuery, and more |
+| `context7` | Library documentation search |
+
+Each API-store plugin renders one MCP registration per harness config format (`yaml`, `json`, `json5`, `toml`, `cli`), so every harness on a heavy runtime sees the same connectors.
+
+## Skills store
+
+Skills follow the manifest contract: YAML frontmatter with `name`, `description`, `version`, and optional `metadata.zap.{weight,lanes,harnesses}`. In a runtime the store lives at `/zap/skills/<name>/SKILL.md` and is symlinked or copied into each harness's skills directories at boot.
+
+Hosted downloads:
+
+```text
+https://zap.wzrd.tech/api/skills
+https://zap.wzrd.tech/api/skills/<name>
+```
+
+Manage local skill manifests with `zap skills [generate|update|check] --json`.

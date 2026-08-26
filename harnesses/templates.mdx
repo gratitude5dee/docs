@@ -1,0 +1,27 @@
+---
+title: "Templates and overlays"
+description: "Base weights, named harness snapshots, overlays, and environment overlays — all built without secrets."
+---
+
+Templates are named Box snapshots. Four kinds:
+
+- **Base weights** — `zap-light`, `zap-med`, `zap-heavy`. See [Runtime profiles](/concepts/runtime-profiles).
+- **Named snapshots** — fully baked harness templates: `zap-heavy-hermes`, `zap-heavy-openclaw`, `zap-heavy-opencode`.
+- **Overlays** — thinner harness templates applied over a base or another snapshot at boot: `zap-heavy-{agno,cursor,deepseek,devin,frontier,grok,headlong,kimi,omg,pi,prime}`, `zap-med-{fx,genmedia,interpreter}`. `zap-heavy-grok` overlays `zap-heavy-opencode`.
+- **Environment overlays** — `env-<name>` desktop/OS environments:
+  - `env-omarchy` — Arch Linux + Hyprland desktop over a baked zap template on Box (status: coming soon; `doctor` reports `comingSoon`).
+  - `env-macos` — native macOS (darwin/arm64) on Namespace Apple-silicon instances (status: coming soon).
+
+## Invariants
+
+- Templates are built without secrets: the bake pipeline runs `bake.sh`, `doctor.sh`, a warm stop→resume→doctor cycle, and a secret sweep before snapshotting.
+- BYOK env is injected per box at create time; managed mode receives only the gateway proxy URL.
+- Per-box credentials (like Hermes's `API_SERVER_KEY`) are rendered at boot, never baked.
+
+## CLI
+
+```bash
+zap harness ls --json                    # templates and their status
+zap harness bake <template> --live       # build + verify a snapshot
+zap harness doctor <template>            # health-check a baked template
+```

@@ -1,0 +1,48 @@
+---
+title: "Plan-only and the payer model"
+description: "Zap never spends money by default. Live execution requires --live and a configured payer; a missing payer fails closed."
+---
+
+Every Zap run is **plan-only by default**. In plan-only mode, side-effecting tools emit `tool.planned` events with their input and a cost estimate; read-only tools may run. Nothing spends without `--live` **and** a payer.
+
+## Payer modes
+
+`zap doctor` and `zap pay status` report the payer as one of three modes:
+
+| Mode | Meaning |
+| --- | --- |
+| `missing` | No payer configured. Prompt runs fail closed with `PAYER_MISSING`. |
+| `byok` | You bring your own provider keys; usage is recorded to a local ledger at `.zap/ledger.jsonl`. |
+| `managed` | Zap Cloud pays upstream providers and bills you per request through the payment gate. |
+
+## Fail-closed rules
+
+- No payer + `--live` → the run is rejected with `PAYER_MISSING` before any tool executes.
+- No payer + a prompt (even plan-only) → rejected before the harness driver is invoked, because model tokens cost money even in plan-only mode.
+- A payer + a plan-only prompt → the run executes with `live: false`; side-effecting tools stay disabled.
+- Usage reported on `run.completed` settles against the meter, so ledgers reconcile with receipts.
+
+There is never a silent downgrade: a live request either runs live with a payer or fails with a structured error.
+
+```json
+{
+  "error": {
+    "code": "PAYER_MISSING",
+    "message": "zap run --live requires a payer, and none is configured.",
+    "retryable": false,
+    "remediation": [
+      "zap keys add <provider> …",
+      "zap login --provider claude-code",
+      "zap pay login --managed"
+    ]
+  }
+}
+```
+
+## What counts as live spend
+
+Side-effecting execution: lanes, media submits, paid API calls, browser purchases, on-chain actions. Thinking tokens under a configured payer are metered plan-mode spend and do not require `--live`.
+
+## Metering
+
+The meter tracks usage in units beyond dollars: sandbox-seconds, gateway tokens, GPU-seconds, API calls, browser minutes, and egress bytes. See [Pay](/services/pay) for managed settlement via x402 / MPP.

@@ -1,176 +1,67 @@
 ---
-title: "Quickstart: Build Your First Zap Recipe in 5 Minutes"
-sidebarTitle: "Quickstart"
-description: "Scaffold a Zap project from scratch, author a generative video recipe, validate it, and run a zero-cost mock pipeline in under five minutes."
+title: "Quickstart"
+description: "Install the Zap v5 CLI, check your setup with doctor, and compose your first runtime — all plan-only and zero-spend."
 ---
 
-In this guide you will scaffold a fresh Zap project, author a recipe with `zap new`, validate it against the schema, and execute the full pipeline in mock mode — producing a local run result with no provider spend. The whole sequence takes under five minutes and requires only Node.js 24 and an internet connection for the initial `npx` fetch.
+Zap requires Node 24.x. Every command supports `--json`: humans get text, agents get JSON.
 
-<Steps>
-  <Step title="Install & scaffold a project">
-    Run the `init` command with `--non-interactive` to scaffold the project layout, write `AGENTS.md`, `.env.example`, and `package.json`, and install a sample `hello-world` recipe — then install dependencies:
+## 1. Check your setup
 
-    ```bash
-    npx @wzrdtech/zap@0.1.0 init demo --non-interactive
-    cd demo
-    npm install
-    ```
+```bash
+npx @wzrdtech/zap@5.0.0 doctor --json
+```
 
-    The generated `package.json` includes a full set of convenience scripts so you can use `npm run zap:*` instead of typing the full `npx` prefix each time.
-  </Step>
+`doctor` reports Node version, payer mode (`byok` | `managed` | `missing`), sandbox availability, and template status.
 
-  <Step title="Scaffold a recipe">
-    Use `zap new` to scaffold a recipe skill directory. The slug is lowercased and hyphenated automatically:
+## 2. Compose a runtime
 
-    ```bash
-    npx @wzrdtech/zap@0.1.0 new my-zap
-    ```
+```bash
+npx @wzrdtech/zap@5.0.0 init
+npx @wzrdtech/zap@5.0.0 compose --weight med --sandbox box --dry-run --json
+```
 
-    This creates the following file tree inside your project:
+`compose` resolves `Runtime.md` (or `zap.config.ts`) into a deterministic plugin tree without acquiring anything. Equivalent `Runtime.md` and `zap.config.ts` definitions produce identical trees and lock hashes. Drop `--dry-run` to boot the runtime on your sandbox.
 
-    ```text
-    agent/
-    └── skills/
-        └── zap-my-zap/
-            ├── SKILL.md
-            ├── Zap.md
-            └── prompts/
-                ├── initial-frame.md
-                └── initial-gen.md
-    ```
+## 3. Manage the runtime
 
-    The generated `Zap.md` has pre-filled frontmatter ready to validate and run immediately:
+```bash
+zap runtime up --json
+zap runtime ps --json
+zap runtime exec <id> -- echo hello
+zap runtime down <id>
+```
 
-    ```yaml
-    ---
-    budget:
-      cap_usd: 5
-      estimate_usd: 0
-    defaults:
-      provider: mock
-    description: A one-click My Zap content recipe.
-    inputs:
-      PROMPT:
-        hint: Describe the scene or transformation.
-        label: Prompt
-        required: true
-        type: textarea
-    output: Zap.mp4
-    steps:
-      - id: initial_frame
-        kind: image.gen
-        model: mock-image
-        prompt: prompts/initial-frame.md
-        provider: mock
-      - duration_s: 15
-        id: initial_gen
-        inputs:
-          - initial_frame
-        kind: video.gen
-        model: mock-video
-        prompt: prompts/initial-gen.md
-        provider: mock
-      - id: stitch
-        inputs:
-          - initial_gen
-        kind: stitch
-        stitch:
-          engine: auto
-          format: mp4
-          quality: standard
-    version: 1
-    zap: my-zap
-    ---
+`zap runtime` also supports `logs`, `snapshot`, `fork`, `stop`, `resume`, and `desktop`. `zap fs <ls|read|write|rm> <runtime-id> <path>` operates on the runtime's filesystem.
 
-    # My Zap
-    ```
-  </Step>
+## 4. Stay plan-only, or go live
 
-  <Step title="Validate the recipe">
-    Run the validator to confirm the frontmatter schema is correct, all step `id` and `kind` fields are present, input references are declared, and the budget cap is positive:
+Plan-only is the default everywhere. Side-effecting work emits `tool.planned` events with cost estimates. To spend for real:
 
-    ```bash
-    npx @wzrdtech/zap@0.1.0 validate
-    ```
+```bash
+zap pay status                 # payer: byok | managed | missing
+zap keys add openrouter        # BYOK, or:
+zap pay login --managed        # spend-capped managed wallet
+zap run <Zap.md> --live        # now spends
+```
 
-    Expected output for a fresh scaffold:
+No payer + `--live` fails closed with `PAYER_MISSING` — never a silent downgrade.
 
-    ```text
-    ok agent/skills/zap-my-zap/Zap.md (my-zap)
-    ```
+## Install options
 
-    You can also pass a specific file path or slug to validate a single recipe: `zap validate agent/skills/zap-my-zap/Zap.md`.
-  </Step>
+```bash
+npm install --global @wzrdtech/zap   # zap on your PATH
+zap --version
+```
 
-  <Step title="Run the mock pipeline">
-    Execute the full step graph in mock mode. The `--json` flag returns machine-readable output suitable for agents and CI pipelines:
+Or project-local: `npm install --save-dev @wzrdtech/zap`, then `npm exec -- zap --version`.
 
-    ```bash
-    npx @wzrdtech/zap@0.1.0 run agent/skills/zap-my-zap/Zap.md --json
-    ```
+## Next steps
 
-    Truncated output:
-
-    ```json
-    {
-      "runId": "run_lx0k3f_a1b2c3",
-      "zap": "my-zap",
-      "status": "done",
-      "mode": "mock",
-      "live": false,
-      "message": "Mock Zap run completed.",
-      "quoteUsd": 0,
-      "zapUrl": "mock://zap/my-zap/run_lx0k3f_a1b2c3/Zap.mp4",
-      "steps": [
-        { "stepId": "initial_frame", "kind": "image.gen", "provider": "mock", "status": "done", "quoteUsd": 0 },
-        { "stepId": "initial_gen",   "kind": "video.gen", "provider": "mock", "status": "done", "quoteUsd": 0 },
-        { "stepId": "stitch",        "kind": "stitch",    "provider": "mock", "status": "done", "quoteUsd": 0 }
-      ]
-    }
-    ```
-
-    The full result is also written to `.zap/runs/<runId>/result.json` for offline inspection.
-  </Step>
-
-  <Step title="Check run status">
-    List all local runs or inspect a specific run by ID:
-
-    ```bash
-    # List all run IDs
-    npx @wzrdtech/zap@0.1.0 status
-
-    # Inspect a specific run
-    npx @wzrdtech/zap@0.1.0 status run_lx0k3f_a1b2c3
-    ```
-
-    Output for a completed mock run:
-
-    ```text
-    run_lx0k3f_a1b2c3 done mock://zap/my-zap/run_lx0k3f_a1b2c3/Zap.mp4
-    ```
-  </Step>
-</Steps>
-
-<Note>
-  **Live provider runs require `--live` plus provider credentials.** Mock mode is always the default and always free. To run against real providers (GMI Cloud, fal.ai, etc.), pass `--live` and ensure the appropriate API keys are set in your environment. See [Providers](/concepts/providers) for key names and setup instructions.
-</Note>
-
-<Tip>
-  **Use the npm scripts for daily development.** `zap init` adds these scripts to `package.json` automatically:
-
-  ```json
-  {
-    "scripts": {
-      "zap:new":      "zap new",
-      "zap:validate": "zap validate",
-      "zap:run":      "zap run",
-      "zap:status":   "zap status",
-      "zap:doctor":   "zap doctor",
-      "zap:docs":     "zap docs",
-      "zap:skills":   "zap skills check"
-    }
-  }
-  ```
-
-  With these in place you can run `npm run zap:validate`, `npm run zap:run -- agent/skills/zap-my-zap/Zap.md --json`, and so on without the `npx @wzrdtech/zap@0.1.0` prefix.
-</Tip>
+<CardGroup cols={2}>
+  <Card title="Agents quickstart" icon="robot" href="/agents/quickstart">
+    Write, deploy, and talk to an agent as code.
+  </Card>
+  <Card title="Runtime profiles" icon="layer-group" href="/concepts/runtime-profiles">
+    Choose between zap-light, zap-med, and zap-heavy.
+  </Card>
+</CardGroup>

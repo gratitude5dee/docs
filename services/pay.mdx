@@ -1,0 +1,44 @@
+---
+title: "Pay"
+description: "BYOK or managed x402 / MPP payments through the Zap Cloud payment gate — quoted, metered, capped, and fail-closed."
+---
+
+Zap never spends money by default. Every runtime resolves a **payer** before it executes a prompt, because model tokens cost money even in plan-only mode. See [Plan-only and the payer model](/concepts/plan-live) for the gating rules.
+
+## BYOK
+
+In `byok` mode the runtime resolves each provider key in order: provider env var → `.zap/credentials.json` → device-auth tokens in `.zap/device-auth.json` → an injected vault resolver. If nothing resolves, the run fails closed with `KEY_MISSING`. Usage is recorded to a local ledger at `.zap/ledger.jsonl`. `zap login --provider <id>` runs the provider's own device-auth flow (OpenAI/Codex auth and Claude Code auth are supported) and writes tokens with file mode `0600`.
+
+## Managed payments (x402 v2 and MPP)
+
+Managed mode settles through the Zap Cloud payment gate. Two protocols are accepted:
+
+- **x402 v2** — the client sends `PAYMENT-SIGNATURE`; the gate verifies and settles via a facilitator and returns `PAYMENT-RESPONSE`. The legacy v1 `X-PAYMENT` header is rejected unless the deployment sets `ZAP_X402_V1_SHIM=1`.
+- **MPP** — the client sends `Authorization: Payment ...`; the gate returns `Payment-Receipt`.
+
+An unpaid request receives `402` with both a `PAYMENT-REQUIRED` challenge and `WWW-Authenticate: Payment`, so either protocol can respond.
+
+**Replay protection**: every settlement consumes its x402 nonce or MPP challenge ID exactly once; a replayed credential gets `402` and no second receipt. The `payTo` address is always Zap's treasury or a verified tenant wallet — never taken from the request. Zap holds no user funds and no custodial keys.
+
+## Client-side caps
+
+The runtime payment client refuses to sign any payment above the session cap:
+
+```ts
+import { wrapFetchWithPayment } from "@wzrdtech/zap-runtime";
+
+const paidFetch = wrapFetchWithPayment(fetch, signer, { maxValueUsd: 5 });
+```
+
+`zap pay login --managed` authenticates your wallet and issues a scoped session key: a spend cap (default $5), a single target, and a 24-hour expiry, stored at `.zap/auth.json` with mode `0600`. Zap never holds your primary wallet key. Auth files readable by group or world are rejected with `AUTH_FILE_INSECURE`.
+
+## CLI
+
+```bash
+zap pay status            # payer: byok | managed | missing
+zap pay login --managed   # wallet auth + scoped session key
+zap pay logout            # clears the managed session key only
+zap pay quote             # price a run via /v1/pay/quote
+```
+
+Secrets never appear in output, including `--json`.

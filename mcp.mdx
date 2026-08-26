@@ -1,0 +1,75 @@
+---
+title: "MCP"
+description: "Zap as an agent plugin: an MCP server over stdio or Streamable HTTP, with tool domains for compose, runtime, agents, pay, memory, media, and more."
+---
+
+Zap ships as an agent plugin: MCP tools plus a skill set, installable in any harness that speaks MCP. The MCP server is the packaged CLI.
+
+## Start the server
+
+```bash
+npx -y @wzrdtech/zap mcp                      # stdio (default)
+zap mcp --http --host 127.0.0.1 --port 3910   # Streamable HTTP
+```
+
+`--http` binds to `127.0.0.1` by default. A non-loopback bind requires `ZAP_MCP_TOKEN` as a bearer token — the server refuses to start without it.
+
+## Tool domains
+
+Tools live in auto-registered domain modules. Existing domains:
+
+| domain | covers |
+| --- | --- |
+| `recipes` | validate, lint, run, status for legacy 0.3.1 recipes |
+| `compose` | runtime composition and dry-run plans |
+| `runtime` | runtime lifecycle (up, ps, exec, down) |
+| `agents` | `zap_agent_*`, `zap_deploy_agent`, `zap_session*`, `zap_secret_list` |
+| `fs` | sandbox filesystem under `/zap/fs` |
+| `harness` | harness list, bake, doctor, run |
+| `pay` | payer status and quotes |
+| `memory` | memory status, search, export, forget |
+| `media` | media FS and ffmpeg presets |
+| `doctor` | environment and provider diagnostics |
+
+Plan-only is the default; `live: true` calls are payer-gated and return structured `PAYER_MISSING` when no payer is configured. The MCP server never exposes secret values and does not provide a key-writing tool.
+
+## Client config
+
+Claude Code / Cursor (`.mcp.json` / `.cursor/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "zap": {
+      "command": "npx",
+      "args": ["-y", "@wzrdtech/zap", "mcp"]
+    }
+  }
+}
+```
+
+Codex (`~/.codex/config.toml`):
+
+```toml
+[mcp_servers.zap]
+command = "npx"
+args = ["-y", "@wzrdtech/zap", "mcp"]
+```
+
+OpenCode (`opencode.json`):
+
+```json
+{
+  "mcp": {
+    "zap": {
+      "type": "local",
+      "command": ["npx", "-y", "@wzrdtech/zap", "mcp"],
+      "enabled": true
+    }
+  }
+}
+```
+
+## Skills
+
+Skills follow the manifest contract (`name`, `description`, `version`, optional `metadata.zap.{weight,lanes,harnesses}`) and live at `/zap/skills/<name>/SKILL.md` in a runtime. Hosted downloads: `https://zap.wzrd.tech/api/skills/<name>`. See [API and skills store](/services/api-skills-store).

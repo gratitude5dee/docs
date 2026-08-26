@@ -1,0 +1,36 @@
+---
+title: "Hermes"
+description: "One user, one box: the Hermes harness on the zap-heavy-hermes named snapshot."
+---
+
+Hermes runs under strict single-tenant invariants: one user/one box, `noEnv`, filesystem memory under `~/.hermes`, only the `api_server` inbound adapter enabled, a per-box `API_SERVER_KEY` rendered at boot (never baked), and `hermes-host.service` re-hosting ports after every stop/resume.
+
+| field | value |
+| --- | --- |
+| run adapter | `http-runs` |
+| min weight | `heavy` |
+| template | `zap-heavy-hermes` (named snapshot) |
+| ports | 8642 (api, private), 9119 (dashboard, private) |
+| units | `hermes-gateway.service`, `hermes-dashboard.service`, `hermes-host.service` |
+| state dirs | `~/.hermes` |
+| MCP config | `~/.hermes/config.yaml` (yaml) |
+| LLM auth | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` (byok), `OPENAI_BASE_URL` (managed) |
+| disabled inbound | `discord`, `telegram`, `slack`, `whatsapp`, `twitter`, `imessage`, `email` |
+
+## Compose
+
+```ts
+createRuntime({
+  weight: "heavy",
+  plugins: [box({ template: "zap-heavy-hermes", size: "large" })],
+})
+```
+
+## Build and verify
+
+```bash
+zap harness bake zap-heavy-hermes --live
+zap harness doctor zap-heavy-hermes
+```
+
+Managed mode points `OPENAI_BASE_URL` in `~/.hermes/.env` at the gateway proxy. The snapshot never contains keys.

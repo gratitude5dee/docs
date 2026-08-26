@@ -1,0 +1,41 @@
+---
+title: "Harnesses"
+description: "Named agent harnesses run on zap-heavy runtimes: one normalized RunEvent contract over every adapter, with keys never baked into snapshots."
+---
+
+A harness is a third-party agent runtime baked into a `zap-heavy` template (or an overlay of one). Zap drives every harness through one of three run adapters — `http-runs`, `cli-exec`, or `openai-compat` — and normalizes all output to the shared `RunEvent` union, redacted before it leaves the runtime.
+
+Invariants for every harness:
+
+- Snapshots and manifests never contain keys. BYOK env is injected per box at create time; managed mode receives only the gateway proxy URL (`ZAP_API_URL/v1/runtimes/{id}/gateway`).
+- Inbound channel adapters (Discord, Telegram, Slack, email, ...) are disabled by default.
+- Ports are hosted private unless a harness explicitly needs public exposure.
+
+## Catalog
+
+| harness | run adapter | template | ports |
+| --- | --- | --- | --- |
+| [`hermes`](/harnesses/hermes) | `http-runs` | `zap-heavy-hermes` (named snapshot) | 8642, 9119 (private) |
+| [`openclaw`](/harnesses/openclaw) | `openai-compat` | `zap-heavy-openclaw` (named snapshot) | 18789 (private) |
+| [`opencode`](/harnesses/opencode) | `http-runs` | `zap-heavy-opencode` (named snapshot) | 4096 (private) |
+| `zap` (in-process) | `http-runs` | `zap-med` / `zap-heavy` | 8722 (private) |
+| `agno` | `http-runs` | `zap-heavy-agno` (overlay) | 7777 (private) |
+| `cursor` | `cli-exec` | `zap-heavy-cursor` (overlay) | none |
+| `deepseek` | `cli-exec` | `zap-heavy-deepseek` (overlay) | none |
+| `devin` | `cli-exec` (pull-only) | `zap-heavy-devin` (overlay) | none |
+| `frontier` | `cli-exec` | `zap-heavy-frontier` (overlay) | none |
+| `fx` | `cli-exec` | `zap-med-fx` (overlay) | none |
+| `grok` | `http-runs` | `zap-heavy-grok` (overlay of opencode) | 4096 (private) |
+| `headlong` | `cli-exec` | `zap-heavy-headlong` (overlay) | none |
+| `kimi`, `omg`, `pi`, `prime`, `interpreter` | varies | overlays | varies |
+
+## CLI
+
+```bash
+zap harness ls --json
+zap harness bake zap-heavy-opencode --live   # build + verify a named snapshot
+zap harness doctor zap-heavy-opencode
+zap harness run --harness opencode --json "prompt"
+```
+
+The bake pipeline runs `bake.sh`, `doctor.sh`, a warm stop→resume→doctor cycle, and a secret sweep before snapshotting.

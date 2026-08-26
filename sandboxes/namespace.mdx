@@ -1,0 +1,37 @@
+---
+title: "Namespace"
+description: "Linux container instances and native macOS Apple-silicon instances behind a two-token bridge."
+---
+
+Namespace runs Zap runtimes as Linux container instances (the `zap-heavy` image) or native macOS Apple-silicon instances (the `env-macos` environment).
+
+## Endpoints
+
+- Compute: `https://compute.namespaceapis.com` (instance lifecycle).
+- IAM: `https://iam.namespaceapis.com` — `IssueIngressAccessToken` mints the ingress token; the adapter caches it for 5 minutes.
+
+## Auth model
+
+Bridge requests carry **both** headers, so neither token alone reaches the instance:
+
+- `x-nsc-ingress-auth: <ingress token>` — checked by the Namespace ingress.
+- `X-Zap-Bridge-Token: <RUNTIME_TOKEN>` — checked by `zap-agentd` (Linux) or the control bridge (native macOS).
+
+## Per-instance env
+
+Every instance is created with `TENANT_ID`, `RUNTIME_ID`, and `RUNTIME_TOKEN`; missing values fail before any request.
+
+## Unverified RPCs
+
+RPC shapes not yet confirmed live stay behind the `allowUnverifiedRpcs` flag and are reported by `doctor()` as `unverified` — never silently assumed.
+
+## Capabilities
+
+| capability | value |
+| --- | --- |
+| isolation | `vm` |
+| stop/resume | yes |
+| ports | yes (ingress-authenticated; no private ports) |
+| kvm / docker | yes |
+| snapshot / fork | no |
+| max command seconds | 3600 |

@@ -1,0 +1,23 @@
+---
+title: "Modal (GPU lane)"
+description: "Modal is the GPU lane target — never a general sandbox. It mounts only when a gpu lane is declared."
+---
+
+Modal is **not** a general sandbox in Zap: it is the GPU lane target (`sandbox.modal` plugin plus the `lanes.gpu` dispatcher).
+
+- `acquire()` accepts `purpose: "lane"` only — anything else throws `MODAL_LANE_ONLY`, so a CPU runtime can never mount it by accident.
+- Capabilities: `gpu: true`, `isolation: "container"`; sizes are the GPU classes priced in `pricing.json`.
+- Mounting: the lane dispatcher routes to Modal only when `Runtime.md` `lanes` includes `gpu:<class>` or a media step declares `gpu`. Without a declared lane, Modal never mounts.
+- Pricing: `pricing.json` carries the `gpu_second` SKU per class (USD/s). `estimateGpuCost(class, seconds, pricing)` is the plan-only estimator.
+
+```ts
+import { createGpuLaneExecutor } from "@wzrdtech/zap-runtime/lanes/gpu";
+
+const lanes = createGpuLaneExecutor({
+  cpu: cpuLaneExecutor,
+  lanes: runtimeMd.lanes ?? [], // e.g. ["gpu:L40S"]
+  mount: () => modalLaneTarget, // lazy: never called without a gpu lane
+});
+```
+
+`zap doctor` reports `first-party (gpu lane only)` and verifies that `pricing.json` classes match the supported GPU classes — drift fails.

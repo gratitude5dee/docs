@@ -1,0 +1,26 @@
+---
+title: "Docker"
+description: "Local container sandboxes for development: same contract, container isolation, no cloud account required."
+---
+
+The Docker adapter runs Zap runtimes as local containers. Use it for development when you don't want a cloud sandbox account.
+
+```bash
+zap compose --weight light --sandbox docker --dry-run --json
+zap runtime up --json
+```
+
+- Isolation: `container` — weaker than a VM or microVM. Prefer Box or a microVM provider for untrusted workloads.
+- Containers start from the runtime profile image; the runtime injects only the per-runtime env allowlist (`TENANT_ID`, `RUNTIME_ID`, `RUNTIME_TOKEN`, `GATEWAY_URL`, `GATEWAY_TOKEN`, `ZAP_ENVIRONMENT`) — never your host environment.
+- Filesystem work is rooted at `/zap/fs` inside the container; `sandbox.exec` runs argv commands, not shell strings.
+- Requires a local Docker daemon; `zap doctor --json` reports whether it is reachable.
+
+## Capabilities
+
+| capability | value |
+| --- | --- |
+| isolation | `container` |
+| stop | yes |
+| snapshot / fork / resume | no |
+| ports | no |
+| max command seconds | 3600 |

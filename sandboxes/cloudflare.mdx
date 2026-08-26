@@ -1,0 +1,22 @@
+---
+title: "Cloudflare Sandbox"
+description: "Container sandboxes on Cloudflare Workers with backup/restore snapshots and public preview ports."
+---
+
+First-party adapter over `@cloudflare/sandbox` (`sandbox.cloudflare` plugin).
+
+- Isolation: `container` (Workers container platform).
+- Lifecycle: `getSandbox(env.BINDING, id)` → `exec` → `createBackup()` is the snapshot primitive; `restoreBackup(id)` rehydrates a new sandbox from it. No stop/resume in the current SDK surface.
+- Ports: `exposePort(port)` returns a public preview URL; no private ports.
+- Pinned SDK: `@cloudflare/sandbox@0.4.3`.
+
+```ts
+import { createCloudflareProvider } from "@wzrdtech/zap-sandbox/adapters/cloudflare";
+
+const provider = createCloudflareProvider({
+  binding: "SANDBOX", // wrangler.toml durable-object binding
+  getSandbox: wireCloudflareSdk(env),
+});
+```
+
+`zap doctor` reports `first-party`; `ok: false` without a binding. Live tests require a Cloudflare account and stay opt-in.
