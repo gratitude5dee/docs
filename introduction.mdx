@@ -1,73 +1,51 @@
 ---
-title: "Zap: Agent-First Framework for Generative Video Recipes"
+title: "Zap v5: Composable CPU Agent Runtime"
 sidebarTitle: "Introduction"
-description: "Zap is a lightweight content-agent framework for defining, validating, and running AI-powered generative video pipelines as portable recipe files."
+description: "Zap v5 is a composable CPU-first agent runtime: compose a runtime on a Box VM, write agents as code, run plan-only by default, and pay with your own keys or per request."
 ---
 
-Zap is a lightweight content-agent framework where every generative video recipe lives as a self-contained `Zap.md` file — YAML frontmatter that declares inputs, budget, steps, and provider defaults, paired with human-readable prompt files and a `SKILL.md` capability description. The CLI (`@wzrdtech/zap`) and web studio read the same recipe files as coding agents (Codex, Claude Code, Cursor, and others), so a recipe authored by a human works identically when executed autonomously by an agent. Each `zap-<slug>` skill directory is a portable unit of creative capability that travels with your repo.
+Zap v5 (`@wzrdtech/zap@5.0.0`) turns Zap from one-click generative media recipes into a **composable CPU agent runtime**: an npm package, a CLI, an MCP server, and a skill set that let an agent or a human compose a runtime from plugins, boot it on an isolated VM, and run agents written as code — plan-only by default, with explicit metered live spend.
+
+```bash
+npx @wzrdtech/zap@5.0.0 doctor --json
+npx @wzrdtech/zap@5.0.0 compose --weight med --sandbox box --dry-run --json
+```
+
+## Why CPU
+
+Agents mostly *do*; they do not mostly *think*. Running code, clicking, reading files, calling APIs, and writing outputs are CPU workloads. Zap v5 is the runtime for that work — GPUs and LLMs are plugins it calls, not the substrate it runs on.
+
+## How it works
+
+- **Agents compose runtime plugins.** A runtime is a plugin graph declared in `Runtime.md`; `zap compose` resolves the graph and boots it on a sandbox.
+- **CPU work runs in tenant sandboxes.** Every command goes through `sandbox.exec` on an isolated Box VM (`noEnv: true`); Namespace, self-host, microsandbox, E2B, Daytona, Cloudflare, Modal (GPU lane), and Docker adapters share one contract.
+- **Plan-only is the default.** Side-effecting tools emit `tool.planned` with price estimates; nothing spends without `--live` **and** a payer. A missing payer fails closed with `PAYER_MISSING`.
+- **The gateway owns provider keys.** LLM and media provider keys stay server-side; they are never copied into managed VMs, bundles, logs, or `--json` output.
+- **Agents as code.** `agents/<id>/agent.ts` renders the next step's instructions; hooks attach a model, tools, MCP servers, and subagents. Deployments are immutable and sha-addressed; sessions are durable.
+
+## What changed from 0.3.1
+
+| 0.3.1 | v5 |
+| --- | --- |
+| One-shot generative media recipes (`Zap.md`) | Composable runtime (`Runtime.md`) hosting agents, harnesses, and recipes |
+| Recipe CLI: `init`, `new`, `validate`, `run` | Runtime CLI: `compose`, `runtime`, `agent`, `deploy`, `session`, `secret`, `pay`, `harness`, `mcp` |
+| Media provider adapters | Full plugin graph: sandbox, memory, gateway, media FS, pay, harnesses, skills |
+| Mock mode default | Plan-only default with `--live` + payer gating |
+| Single package + MCP | 12 npm workspaces (see [package index](/reference/packages)) |
+
+The 0.3.1 recipe framework is preserved in v5 — recipes still validate and run, and `defineRecipeTool` wraps a recipe as an agent tool. Legacy recipe docs live under [Legacy](/legacy/introduction).
 
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="bolt" href="/quickstart">
-    Scaffold a project, author your first recipe, and run a zero-cost mock pipeline in under five minutes.
+    Compose your first runtime with `npx @wzrdtech/zap@5.0.0`.
   </Card>
-  <Card title="Zap Spec" icon="file-code" href="/concepts/zap-spec">
-    Full reference for every frontmatter field: inputs, steps, budget, defaults, and output.
+  <Card title="Agents quickstart" icon="robot" href="/agents/quickstart">
+    Build, render, deploy, and talk to your first agent in five minutes.
   </Card>
-  <Card title="Providers" icon="plug" href="/concepts/providers">
-    Configure GMI Cloud, fal.ai, or the built-in deterministic mock adapter as your pipeline backend.
+  <Card title="Core concepts" icon="diagram-project" href="/concepts/kernel">
+    Kernel, plugins, profiles, sandboxes, plan/live, sessions.
   </Card>
-  <Card title="CLI Reference" icon="terminal" href="/reference/cli">
-    Every command — init, new, validate, lint, run, status, doctor, and more — with flags and examples.
+  <Card title="CLI reference" icon="terminal" href="/reference/cli">
+    Every command with flags, exit codes, and `--json` shapes.
   </Card>
 </CardGroup>
-
-## Project & Recipe Structure
-
-A Zap project follows a conventional layout that both humans and coding agents can navigate without configuration:
-
-```text
-my-app/
-├── agent/
-│   └── skills/
-│       └── zap-<slug>/          # One directory per recipe
-│           ├── SKILL.md         # Human + agent capability description
-│           ├── Zap.md           # Recipe frontmatter + creative brief
-│           └── prompts/
-│               ├── initial-frame.md
-│               └── initial-gen.md
-├── docs/                        # Project documentation
-├── .zap/
-│   └── runs/                    # Local run results (gitignored)
-├── AGENTS.md                    # Agent instructions for the project
-├── .env.example                 # Environment variable template
-└── package.json                 # npm scripts: zap:docs, zap:new, zap:run, and more
-```
-
-`zap init <dir>` scaffolds this layout automatically, including a sample `hello-world` recipe, npm convenience scripts, and an `AGENTS.md` with project-level agent instructions.
-
-### Inside a Recipe Skill
-
-```text
-zap-<slug>/
-├── SKILL.md          # "Use this skill when a creator wants the <Slug> Zap."
-├── Zap.md            # YAML frontmatter (inputs, steps, budget) + creative prose
-└── prompts/
-    ├── initial-frame.md   # Image generation prompt — references {PROMPT}
-    └── initial-gen.md     # Video generation prompt — references {PROMPT}
-```
-
-The `Zap.md` frontmatter is the single source of truth for the pipeline: step ordering, model selection, provider routing, budget caps, and input schema are all declared there. Prompt files contain the creative instructions passed to each model, with `{INPUT_NAME}` placeholders substituted at run time.
-
-## What Ships
-
-| Layer | Contents |
-|---|---|
-| **CLI** | `init`, `new`, `validate`, `lint`, `run`, `status`, `add`, `docs`, `skills`, `doctor`, `info`, `upgrade` |
-| **Web studio** | Creator-friendly Zap runner at `/zap/<slug>` and agent workspace at `/studio` |
-| **Runtime** | Convex run state, Upstash idempotency + polling queues, GMI Cloud and fal.ai provider adapters, optional HyperFrames stitching |
-| **Workspace packages** | `@wzrdtech/zap` (publishable CLI), core schema/planning, provider queues, agent helpers |
-| **Registry** | Curated skill templates installable via `zap add <name>` |
-
-<Note>
-  **Mock mode is the default — it costs nothing.** Every `zap run` and `npm run zap:run` command uses the deterministic mock adapter unless you explicitly pass `--live`. Mock mode fills required inputs with deterministic placeholders, executes the full step graph, writes a local result to `.zap/runs/`, and returns a `mock://` asset URL. No provider keys, no spend, no surprises. Add `--live` only after provider credentials and a budget cap are in place.
-</Note>

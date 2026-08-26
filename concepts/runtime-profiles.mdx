@@ -1,0 +1,42 @@
+---
+title: "Runtime profiles"
+description: "Three runtime weights — zap-light, zap-med, zap-heavy — each a named Box template built without secrets."
+---
+
+A Zap runtime ships in three weights. Each is a named, forkable VM template; heavier weights include everything below them. Template names follow `zap-<light|med|heavy>-<harness>`; the three weight bases are named `zap-<weight>` and environment overlays are `env-<name>`.
+
+| Profile | Adds | Use for |
+| --- | --- | --- |
+| `zap-light` | ffmpeg, code, files, browser, APIs, writes | CPU execution: transcode, scripts, scraping |
+| `zap-med` | AI/gen-media gateway, media filesystem, ffmpeg presets | Generative media pipelines |
+| `zap-heavy` | Memory (OpenViking), API store, skills store, a named agent harness | Full agent runtimes |
+
+## zap-light
+
+The default Box template for light runtimes. Pinned toolchain: Node 24, Bun, Python 3.12, ffmpeg, imagemagick, libvips, Playwright Chromium. `zap-agentd` serves `POST /v1/runs` + SSE on port 8722 behind bearer auth, hosted privately and re-registered at boot/resume. Lanes: `codegen`, `ffmpeg`, `media-workflows`, `browser` (process isolation under systemd-run); `wasm` where the host exposes KVM. Aliases `zap-light-ffmpeg` and `zap-light-code` are config-only lane subsets; `zap-light-browser` is a browser overlay.
+
+## zap-med
+
+`zap-light` plus the [gateway](/services/gateway), the [content-addressed media filesystem](/services/mediafs), and data-defined ffmpeg presets (`/zap/ffmpeg-presets.json`, executed only through the `ffmpeg` lane). The in-process `harness.zap` executor mounts here; callers drive it with the `http-runs` driver.
+
+```ts
+createRuntime({
+  weight: "med",
+  plugins: [box({ template: "zap-med", size: "default" })],
+})
+```
+
+## zap-heavy
+
+`zap-med` plus [memory](/services/memory) (loopback OpenViking), the API store (context7, open-connector, Composio), the skills store, and a named harness. The heavy base ships Node 24, Docker CE, and the MCP servers; harness templates like `zap-heavy-hermes` build on it. See [Harnesses and templates](/harnesses/overview).
+
+```ts
+createRuntime({
+  weight: "heavy",
+  plugins: [box({ template: "zap-heavy", size: "large" })],
+})
+```
+
+## Templates never contain secrets
+
+Every template is built with `noEnv: true` — snapshots contain no keys. BYOK env is injected per box at create time; managed mode receives only the gateway proxy URL. A secret sweep runs before every snapshot.

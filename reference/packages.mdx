@@ -1,0 +1,35 @@
+---
+title: "Package index"
+description: "Every published @wzrdtech workspace at 5.0.0: what each one does and how to install it."
+---
+
+Everything ships at version `5.0.0`. Install what you need:
+
+```bash
+npm install @wzrdtech/zap            # the CLI — most users need only this
+npm install @wzrdtech/zap-agent      # agents-as-code API (defineAgent, hooks)
+```
+
+| package | purpose |
+| --- | --- |
+| `@wzrdtech/zap` | The `zap` CLI and MCP entry point. `npx -y @wzrdtech/zap@5.0.0` for one-off commands. |
+| `@wzrdtech/zap-kernel` | The composition kernel: plugins, services, typed events, reversible effects. |
+| `@wzrdtech/core` | Recipe schema, parser, planning, and skills manifest helpers (0.3.1 recipes preserved). |
+| `@wzrdtech/zap-runtime` | Runtime services: gateway, lanes, harness adapters, media FS, payments client, API store. |
+| `@wzrdtech/zap-sandbox` | The sandbox contract and every provider adapter (Box, Namespace, self-host, microsandbox, Docker, E2B, Daytona, Cloudflare, Modal, catalog stubs). |
+| `@wzrdtech/sandbox-adapters` | Shared adapter primitives for sandbox providers. |
+| `@wzrdtech/zap-memory` | Memory providers: OpenViking (default on heavy), Mem0, Zep. |
+| `@wzrdtech/zap-agent` | Agents-as-code: `defineAgent`, `defineTool`, `defineConnection`, hooks, build and lint. |
+| `@wzrdtech/agent` | Reusable agent instructions and budget guards (0.3.1 recipe framework). |
+| `@wzrdtech/zap-cloud` | Control plane client: deployments, sessions, secrets, payment gate. |
+| `@wzrdtech/zap-mcp` | Standalone MCP server (`npx @wzrdtech/zap-mcp`); the CLI's `zap mcp` uses the same tools. |
+| `@wzrdtech/zap-templates` | Runtime templates: base weights, harness snapshots, overlays, environments. |
+| `@wzrdtech/providers` | Provider adapters and queue primitives for the recipe framework. |
+
+Install examples:
+
+```bash
+npm install @wzrdtech/zap-runtime @wzrdtech/zap-sandbox @wzrdtech/zap-kernel   # compose in code
+npm install @wzrdtech/zap-memory                                               # memory plugins
+npm install --save-dev @wzrdtech/zap                                           # project-local CLI
+```

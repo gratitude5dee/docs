@@ -1,0 +1,36 @@
+---
+title: "OpenCode"
+description: "opencode serve driven via HTTP runs on the zap-heavy-opencode named snapshot — also the base of the grok overlay."
+---
+
+OpenCode runs `opencode serve` on port 4096 (private), driven via HTTP runs. It is the base of the `grok` overlay and the `env-omarchy` environment.
+
+| field | value |
+| --- | --- |
+| run adapter | `http-runs` |
+| min weight | `heavy` |
+| template | `zap-heavy-opencode` (named snapshot) |
+| ports | 4096 (api, private) |
+| pins | `opencode-ai@0.6.4` |
+| units | `opencode-serve.service` |
+| state dirs | `~/.config/opencode`, `~/.local/share/opencode` |
+| MCP config | `~/.config/opencode/opencode.json` (json) |
+| LLM auth | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` (byok) |
+| managed gateway | `provider.zap.options.baseURL` in `~/.config/opencode/opencode.json` |
+| disabled inbound | `tui`, `share` |
+
+## Compose
+
+```ts
+createRuntime({
+  weight: "heavy",
+  plugins: [box({ template: "zap-heavy-opencode", size: "large" })],
+})
+```
+
+## Build and verify
+
+```bash
+zap harness bake zap-heavy-opencode --live
+zap harness doctor zap-heavy-opencode
+```

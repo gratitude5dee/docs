@@ -1,0 +1,23 @@
+---
+title: "Catalog stubs"
+description: "Providers Zap knows about but hasn't implemented yet: doctor lists them as catalog-stub, and acquire() fails loudly instead of guessing."
+---
+
+Catalog stubs are sandbox and compute providers Zap tracks but has not yet verified with a first-party adapter. A stub claims nothing beyond the contract minimum:
+
+- `acquire()` always throws `CATALOG_STUB` — a stub never pretends to run anything.
+- `zap doctor --json` lists each stub with `tier: "catalog"`, `verified: false`, its `kind`, and a `docsUrl` remediation link.
+- Every manifest carries a `kind`: `sandbox`, `gpu`, `inference`, `computer-use`, or `document`.
+
+Current stubs include:
+
+| id | kind |
+| --- | --- |
+| `catalog:baseten` | inference |
+| `catalog:blaxel` | sandbox |
+| `catalog:freestyle` | sandbox |
+| `catalog:orgo` | computer-use |
+| `catalog:runpod` | gpu |
+| `catalog:tensorlake` | document |
+
+To use a stubbed provider today, run it behind the [self-host adapter](/sandboxes/selfhost) or pick a [first-party provider](/concepts/sandboxes) with the same isolation class.

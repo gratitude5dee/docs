@@ -1,0 +1,39 @@
+---
+title: "Box"
+description: "Zap's default sandbox: full VMs on ascii.dev with snapshots, fork, stop/resume, hosted ports, desktop streaming, and Docker inside."
+---
+
+Box is Zap's default sandbox provider: full VMs with snapshots, fork, stop/resume, hosted ports (public and private), desktop streaming, SSH, and Docker inside.
+
+## Capabilities
+
+| capability | value |
+| --- | --- |
+| isolation | `vm` |
+| snapshot / fork / stop / resume | yes |
+| ports / private ports / desktop / ssh | yes |
+| docker | yes |
+| kvm / gpu | no |
+| sizes | `small`, `default`, `large` |
+| max command seconds | 600 |
+
+## Security rules (enforced in code)
+
+- Every create/fork body carries `noEnv: true` — a box never inherits the account's environment.
+- Per-box env keys are restricted to the per-runtime allowlist: `TENANT_ID`, `RUNTIME_ID`, `RUNTIME_TOKEN`, `GATEWAY_URL`, `GATEWAY_TOKEN`, `ZAP_ENVIRONMENT`. Missing required keys fail before any HTTP request.
+- Create/fork are idempotent: an `Idempotency-Key` header plus a replay guard — three calls with the same key produce one request.
+- `429` with `start_limit_reached` or `rate_limited` maps to `SandboxStartLimit` with `retryAfterSeconds`; starts are queued, not retried blindly.
+- `stop` never sends `force`. Default TTL is 24 h and is re-applied on resume.
+- After `resume()` the adapter re-reads every hosted port: hosted port tokens rotate, and neither old nor new tokens ever reach the log.
+
+## Lifecycle
+
+`acquire(spec)` creates a box (or `acquire({ template })` from a named snapshot); `handle.fork(spec)` forks; `handle.exec(cmd, opts)` runs commands (`{ detached: true }` for background); `handle.fs.read`/`write` for files; `handle.snapshot(name)`, `handle.stop()`, `handle.resume()`, `handle.remove()`, `handle.desktop()`.
+
+## Templates and operator flows
+
+- Default template: `zap-light`; heavy harness templates build on `zap-heavy`.
+- Build a snapshot: `infra/box/build-template.sh <template>`. Verify: `infra/box/verify-template.sh <template>`.
+- Webhooks are HMAC-SHA256 signed with a 5-minute max age.
+
+`zap doctor` reports whether `BOX_API_KEY` is configured without ever including the key.

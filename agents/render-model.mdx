@@ -1,0 +1,50 @@
+---
+title: "Render model and hooks"
+description: "The synchronous render frame: how hooks declare capabilities, what the guards forbid, and how the runtime executes the result."
+---
+
+The render function runs on every turn, before every model step. It returns the instruction string for that step; hooks called during the render declare the step's capabilities.
+
+## Hooks
+
+All hooks throw `HOOK_OUTSIDE_RENDER` when called outside a render.
+
+| Hook | Effect |
+| --- | --- |
+| `useInput(): AgentInput` | the current turn's input (`source`, `text`, `payload`, `live`, `sessionId`, `turn`, `alias`) |
+| `useModel(id, options?)` | select the model for the next step; never calls it |
+| `useTool(tool)` | declare a tool for the next step |
+| `useMcpServer(ref)` | declare an MCP server |
+| `useSubagent(id)` | declare a child agent the model may delegate to |
+| `useSessionData(): Record<string, unknown>` | synchronous snapshot of durable session data taken before render |
+| `useSecret(name): SecretRef` | opaque, write-only secret reference |
+| `bearer(ref): HeaderValue` | bearer-auth header value from a secret ref |
+
+## Per-render capability rebuild
+
+Capabilities (tools, MCP servers, subagents) rebuild from empty on each render, so conditional hooks work naturally:
+
+```ts
+export default defineAgent(function Support() {
+  const input = useInput();
+  const data = useSessionData();
+  useModel("openrouter/anthropic/claude-sonnet-4.6");
+  if (data.escalated) useTool(pageOncall);       // exists only after escalation
+  if (input.live) useTool(refundCustomer);       // live turns only
+  return "Handle the support request. Escalate when policy requires it.";
+});
+```
+
+## Render guards
+
+Render is strictly synchronous and free of I/O. During render:
+
+- `fetch`, `setTimeout`, `setInterval`, `queueMicrotask`, and `process.env` reads throw `AGENT_RENDER_IO`.
+- Returning a thenable throws `AGENT_RENDER_ASYNC`.
+- Non-string returns throw `AGENT_RENDER_TYPE`; a render that selects no model throws `AGENT_NO_MODEL`.
+
+Side effects belong in tools, and tools that do CPU work run through `sandbox.exec` in the VM.
+
+## Determinism
+
+`zap agent render --agent <id> --input "..." --json` executes a render with no model call and no spend. Identical input produces identical bytes — the exact instructions, model id, tool list, and referenced secret names (never values). Use it in CI to snapshot agent behavior.

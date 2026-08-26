@@ -15,12 +15,12 @@
   "navbar": {
     "primary": {
       "type": "github",
-      "href": "https://github.com/gratitude5dee/Zap"
+      "href": "https://github.com/gratitude5dee/zap"
     }
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/gratitude5dee/Zap"
+      "github": "https://github.com/gratitude5dee/zap"
     }
   },
   "navigation": {
@@ -33,51 +33,68 @@
             "pages": [
               "introduction",
               "quickstart",
-              "quickstart-agents"
+              "agents/quickstart"
             ]
           },
           {
             "group": "Core Concepts",
             "pages": [
-              "concepts/zap-spec",
-              "concepts/steps",
-              "concepts/budget",
-              "concepts/providers"
+              "concepts/kernel",
+              "concepts/runtime-profiles",
+              "concepts/sandboxes",
+              "concepts/plan-live",
+              "concepts/deployments-sessions",
+              "concepts/secrets-connections"
             ]
           },
           {
-            "group": "Web App",
+            "group": "Agents as Code",
             "pages": [
-              "webapp/overview",
-              "webapp/zap-runtime",
-              "webapp/run-status",
-              "webapp/studio",
-              "webapp/gallery",
-              "webapp/auth-secrets"
+              "agents/overview",
+              "agents/render-model",
+              "agents/connections",
+              "agents/transcode-example"
             ]
           },
           {
-            "group": "Providers",
-            "icon": "plug",
+            "group": "Runtime Services",
             "pages": [
-              "providers/gmi"
+              "services/memory",
+              "services/gateway",
+              "services/mediafs",
+              "services/pay",
+              "services/api-skills-store"
             ]
           },
           {
-            "group": "Agent Framework",
+            "group": "Sandboxes",
             "pages": [
-              "agent/overview",
-              "agent/connections",
-              "agent/skills",
-              "agent/eve"
+              "sandboxes/box",
+              "sandboxes/namespace",
+              "sandboxes/selfhost",
+              "sandboxes/microsandbox",
+              "sandboxes/docker",
+              "sandboxes/e2b",
+              "sandboxes/daytona",
+              "sandboxes/cloudflare",
+              "sandboxes/modal",
+              "sandboxes/catalog-stubs"
             ]
           },
           {
-            "group": "Deployment",
+            "group": "Harnesses & Templates",
             "pages": [
-              "deployment/vercel",
-              "deployment/supabase-secrets",
-              "deployment/convex"
+              "harnesses/overview",
+              "harnesses/hermes",
+              "harnesses/openclaw",
+              "harnesses/opencode",
+              "harnesses/templates"
+            ]
+          },
+          {
+            "group": "MCP",
+            "pages": [
+              "mcp"
             ]
           }
         ]
@@ -86,32 +103,88 @@
         "tab": "Reference",
         "groups": [
           {
-            "group": "CLI",
+            "group": "Reference",
             "pages": [
               "reference/cli",
-              "reference/cli-flags"
-            ]
-          },
-          {
-            "group": "Schema",
-            "pages": [
-              "reference/schema",
-              "reference/step-kinds",
-              "reference/runtime"
-            ]
-          },
-          {
-            "group": "Support",
-            "pages": [
-              "reference/troubleshooting"
+              "reference/agent-api",
+              "reference/packages",
+              "reference/json-output"
             ]
           }
         ]
       },
       {
-        "tab": "Browser Use (Coming Soon)",
-        "pages": [
-          "browser-use-support"
+        "tab": "Legacy (0.3.1)",
+        "groups": [
+          {
+            "group": "Legacy 0.3.1 Recipes",
+            "pages": [
+              "legacy/home",
+              "legacy/introduction",
+              "legacy/quickstart",
+              "legacy/quickstart-agents"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "legacy/concepts/zap-spec",
+              "legacy/concepts/steps",
+              "legacy/concepts/budget",
+              "legacy/concepts/providers"
+            ]
+          },
+          {
+            "group": "Web App",
+            "pages": [
+              "legacy/webapp/overview",
+              "legacy/webapp/zap-runtime",
+              "legacy/webapp/run-status",
+              "legacy/webapp/studio",
+              "legacy/webapp/gallery",
+              "legacy/webapp/auth-secrets"
+            ]
+          },
+          {
+            "group": "Providers",
+            "pages": [
+              "legacy/providers/gmi"
+            ]
+          },
+          {
+            "group": "Agent Framework",
+            "pages": [
+              "legacy/agent/overview",
+              "legacy/agent/connections",
+              "legacy/agent/skills",
+              "legacy/agent/eve"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "legacy/deployment/vercel",
+              "legacy/deployment/supabase-secrets",
+              "legacy/deployment/convex"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "legacy/reference/cli",
+              "legacy/reference/cli-flags",
+              "legacy/reference/schema",
+              "legacy/reference/step-kinds",
+              "legacy/reference/runtime",
+              "legacy/reference/troubleshooting"
+            ]
+          },
+          {
+            "group": "Browser Use",
+            "pages": [
+              "legacy/browser-use-support"
+            ]
+          }
         ]
       }
     ]

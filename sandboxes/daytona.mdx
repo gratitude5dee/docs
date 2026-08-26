@@ -1,0 +1,22 @@
+---
+title: "Daytona"
+description: "Container sandboxes with snapshots and HTTPS preview links."
+---
+
+First-party adapter over Daytona container sandboxes (`sandbox.daytona` plugin).
+
+- Isolation: `container`.
+- Lifecycle: create → run → `stop()`/`start()` keep the filesystem; `snapshot(name)` produces a reusable image.
+- Ports: `getPreviewLink(port)` returns an HTTPS preview URL plus an access token. The token is server-side only and never logged — the adapter logs only the sandbox id and port.
+- Pinned SDK: `@daytonaio/sdk@0.27.0`.
+
+```ts
+import { createDaytonaProvider } from "@wzrdtech/zap-sandbox/adapters/daytona";
+
+const provider = createDaytonaProvider({
+  apiKey, // DAYTONA_API_KEY — injected by the composition, never process.env
+  createSandbox: wireDaytonaSdk(apiKey),
+});
+```
+
+`zap doctor` reports `first-party`; `ok: false` without an API key. Live conformance tests are opt-in (`RUN_HOSTED_SANDBOX_TESTS=1` + `DAYTONA_API_KEY`).

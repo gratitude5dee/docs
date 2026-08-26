@@ -1,0 +1,56 @@
+---
+title: "Connections"
+description: "Declare every outbound HTTP surface an agent may touch: HTTPS origin, methods, path prefix, and secret-backed headers."
+---
+
+Connections are the only way an agent reaches the network. Each one declares an HTTPS origin, an allowed method list, a path prefix, and headers built from write-only secret references.
+
+```ts
+import { bearer, defineConnection, useSecret } from "@wzrdtech/zap-agent";
+
+export const github = defineConnection({
+  id: "github",
+  origin: "https://api.github.com",
+  methods: ["GET", "POST"],
+  pathPrefix: "/repos/",
+  headers: { Authorization: bearer(useSecret("GITHUB_TOKEN")) },
+});
+```
+
+## Using a connection in a tool
+
+Tools receive declared connections through their `ToolContext`:
+
+```ts
+import { defineTool } from "@wzrdtech/zap-agent";
+
+export const listIssues = defineTool({
+  name: "list_issues",
+  description: "List open issues for a repository",
+  readOnly: true,
+  input: {
+    type: "object",
+    properties: { repo: { type: "string" } },
+    required: ["repo"],
+  },
+  async run(ctx) {
+    // relative path, resolved against the connection's origin + prefix
+    const res = await ctx.connections.github.fetch(`${ctx.input.repo}/issues`);
+    return res.json();
+  },
+});
+```
+
+## Enforcement
+
+- Relative paths only — absolute URLs fail with `CONNECTION_ABSOLUTE_URL`.
+- Requests outside the method allowlist fail with `CONNECTION_METHOD_DENIED`; outside the path prefix, `CONNECTION_PATH_DENIED`.
+- Sensitive headers (`Authorization`, `Cookie`, `X-API-Key`) must come from `useSecret()` / `bearer()`; literals are the build error `ZAP_BUILD_SECRET_LITERAL`.
+- Origins must be HTTPS (`ZAP_BUILD_ORIGIN_NOT_HTTPS`).
+- Secret values resolve immediately before the request, attach only to that request, and are discarded. They never appear in any artifact.
+
+Set values per agent and environment with the CLI:
+
+```bash
+zap secret set GITHUB_TOKEN --agent issues --env production --stdin
+```

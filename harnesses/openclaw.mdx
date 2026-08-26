@@ -1,0 +1,36 @@
+---
+title: "OpenClaw"
+description: "OpenClaw gateway driven through its OpenAI-compatible endpoint on the zap-heavy-openclaw named snapshot."
+---
+
+OpenClaw hosts a gateway on port 18789 (private). Runs are driven through its OpenAI-compatible endpoint (`openai-compat` adapter); config is rendered at boot from strict JSON.
+
+| field | value |
+| --- | --- |
+| run adapter | `openai-compat` |
+| min weight | `heavy` |
+| template | `zap-heavy-openclaw` (named snapshot) |
+| ports | 18789 (api, private) |
+| pins | `openclaw@1.2.0` |
+| units | `openclaw-gateway.service` |
+| state dirs | `~/.openclaw` |
+| MCP config | `~/.openclaw/openclaw.json` (json5) |
+| LLM auth | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` (byok) |
+| managed gateway | `models.providers.zap.baseUrl` in `~/.openclaw/openclaw.json` |
+| disabled inbound | `discord`, `telegram`, `slack`, `whatsapp`, `signal`, `email` |
+
+## Compose
+
+```ts
+createRuntime({
+  weight: "heavy",
+  plugins: [box({ template: "zap-heavy-openclaw", size: "large" })],
+})
+```
+
+## Build and verify
+
+```bash
+zap harness bake zap-heavy-openclaw --live
+zap harness doctor zap-heavy-openclaw
+```

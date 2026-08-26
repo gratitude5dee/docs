@@ -1,0 +1,39 @@
+---
+title: "Deployments and sessions"
+description: "Immutable sha-addressed deployments, movable aliases, and durable sessions pinned to the deployment they started on."
+---
+
+## Deployments
+
+`zap deploy` bundles `project.ts` and every `agents/<id>/agent.ts` into an immutable deployment, content-addressed by bundle sha, stored under `/zap/deployments/<sha>/` in the runtime VM. Deployments never change after they are built.
+
+## Aliases
+
+Aliases (`development`, `production`) are movable pointers under `/zap/aliases/`:
+
+- `zap deploy --watch` rebuilds on change and advances **only** `development`.
+- `zap deploy --alias production --sha <sha>` moves the production pointer to an existing deployment — it never builds a new one.
+
+Address an agent as `agent-id@alias`, for example `transcode@production`.
+
+## Sessions
+
+Sessions are durable turns bound to a deployment:
+
+```bash
+zap session --agent transcode@production --json "transcode in.mp4 to h264"
+zap session --agent transcode --session <id> --json "now to webm"
+zap sessions ls --json
+```
+
+- The alias resolves **once**, at session creation; the resolved `deploymentId` is stored in the session. Later alias moves (including advancing `production`) never change a running session.
+- Resume does not rebuild history locally — transcripts stay inside the VM under `/zap/sessions/<id>/`; only metadata (agent, alias, deployment id, turn count) mirrors to the control plane.
+- Each turn streams JSONL events: `turn.started`, `render`, `text.delta`, `tool.planned`, `tool.call`, `tool.result`, `turn.completed`, `turn.failed`.
+
+## Development loop
+
+```bash
+zap deploy --watch                       # dev: rebuild + advance development on save
+zap session --agent my-agent "try it"    # talk to the development alias
+zap deploy --alias production --sha <sha>  # promote explicitly, by sha
+```

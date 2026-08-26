@@ -1,0 +1,67 @@
+---
+title: "JSON output shapes"
+description: "Structured output and error contracts: --json everywhere, JSONL session events, and stable error codes."
+---
+
+Every `zap` command supports `--json`. Success prints a JSON document on stdout; failure prints a structured error object and exits non-zero.
+
+Exit codes: `0` success, `1` failure, `2` usage error.
+
+## Error object
+
+```json
+{
+  "error": {
+    "code": "PAYER_MISSING",
+    "message": "zap run --live requires a payer, and none is configured.",
+    "retryable": false,
+    "remediation": [
+      "zap keys add <provider> ...",
+      "zap login --provider claude-code",
+      "zap pay login --managed"
+    ]
+  }
+}
+```
+
+Every error carries a stable `code`, a human `message`, a `retryable` flag, and copyable `remediation` commands.
+
+## Common error codes
+
+| code | meaning |
+| --- | --- |
+| `PAYER_MISSING` | a live/spending path ran without a configured payer |
+| `KEY_MISSING` | BYOK mode found no key for the required provider |
+| `SESSION_BUSY` | the durable session is already processing a turn |
+| `ALIAS_NOT_FOUND` | the deployment alias doesn't exist |
+| `HARNESS_PULL_ONLY` | the harness has no inbound run endpoint |
+| `MODAL_LANE_ONLY` | Modal was acquired for anything other than a GPU lane |
+| `CATALOG_STUB` | the provider is a catalog stub with no adapter |
+| `AUTH_FILE_INSECURE` | an auth file is readable by group or world |
+| `AGENT_RENDER_IO` / `AGENT_RENDER_ASYNC` / `AGENT_RENDER_TYPE` / `AGENT_NO_MODEL` | render guard violations — see [Agent API](/reference/agent-api) |
+| `CONNECTION_ABSOLUTE_URL` / `CONNECTION_METHOD_DENIED` / `CONNECTION_PATH_DENIED` / `SECRET_SCOPE_DENIED` | connection and secret enforcement — see [Connections](/agents/connections) |
+| `ZAP_BUILD_*` | build lint failures — see [Agent API](/reference/agent-api) |
+
+## Session events (JSONL)
+
+`zap session --json` streams one JSON event per line:
+
+```json
+{"type":"turn.started","sessionId":"s_9f2","turn":4}
+{"type":"render","instructions":"...","capabilities":{"model":"openrouter/anthropic/claude-sonnet-4.6","tools":["ffmpeg_transcode"]}}
+{"type":"text.delta","text":"Working on it"}
+{"type":"tool.planned","tool":"ffmpeg_transcode","estimateUsd":0}
+{"type":"tool.call","tool":"ffmpeg_transcode"}
+{"type":"tool.result","tool":"ffmpeg_transcode","ok":true}
+{"type":"turn.completed","turn":4}
+```
+
+A failed turn ends with `turn.failed` and a stable `code`:
+
+```json
+{"type":"turn.failed","turn":4,"code":"PAYER_MISSING"}
+```
+
+## Plan output
+
+`zap compose --dry-run --json` and `zap run <Zap.md> --json` emit deterministic plans: equivalent `Runtime.md` and `zap.config.ts` definitions produce identical plugin trees and lock hashes, so agents can diff plans reliably.

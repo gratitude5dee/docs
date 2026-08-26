@@ -1,0 +1,20 @@
+---
+title: "microsandbox"
+description: "microVM isolation on self-hosted KVM hosts via the microsandbox SDK, pinned to 0.6.15."
+---
+
+microVM isolation on self-hosted KVM hosts via the microsandbox SDK, pinned to `0.6.15`.
+
+- Isolation: `microvm`; requires `/dev/kvm` on the host.
+- Cloud backends use `MSB_API_KEY`; local `msb` servers need none.
+- Release matrix: `purpose: "lane"` leaves the parent runtime running; `purpose: "test"` stops and removes the microVM.
+- Install on a host: `infra/self-host/setup.sh` (runs the official installer with the pinned version).
+
+## Capabilities
+
+| capability | value |
+| --- | --- |
+| isolation | `microvm` |
+| snapshot / fork / stop / resume / ports | no |
+| kvm | yes |
+| max command seconds | 900 |

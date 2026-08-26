@@ -1,0 +1,39 @@
+---
+title: "Self-host (zap-VM)"
+description: "Run Zap lanes on your own KVM host: microsandbox microVMs, an optional hyperlight-wasm lane, and a token-gated zap-agentd behind TLS."
+---
+
+Run Zap lanes on your own KVM host (Hetzner or any bare-metal / nested-virt box). Setup: `infra/self-host/setup.sh`.
+
+## What setup installs
+
+- **microsandbox** (pinned `0.6.15`) — microVM isolation for lanes.
+- Optional Rust + `hyperlight-wasm` host — the `wasm` lane (`ZAP_BUILD_HYPERLIGHT=1`).
+- Node 24 + `@wzrdtech/zap` + `@wzrdtech/zap-runtime`.
+- `zap-agentd.service` on `0.0.0.0:8722`, systemd-confined; the token loads via a systemd credential and is never written into the unit file.
+- Caddy TLS in front; the firewall allows 443 only.
+
+## Auth and routes
+
+Every request except `GET /v1/health` requires `Authorization: Bearer <ZAP_SELFHOST_TOKEN>`; the adapter refuses to construct without a token. Routes: `/v1/health`, `/v1/exec`, `/v1/lane`, `/v1/files`, `/v1/snapshot`. Filesystem access is rooted at `/zap/fs`.
+
+Lane requests are argv-only — a shell string is rejected. Disallowed binaries return exit code 126 without executing. A dry-run lane request (`POST /v1/lane {"dryRun": true}`) returns the argv and estimate without executing.
+
+## The wasm lane (Hyperlight)
+
+Hyperlight backs the `wasm` lane with hypervisor-isolated micro-guests:
+
+- WASM guests run in microVM isolation — a compromised guest cannot see the host or other guests.
+- It does **not** run arbitrary Linux binaries: no kernel, no libc — `ffmpeg`, `node`, and shell scripts belong to the other lanes.
+- File access happens via explicit host callbacks only; a guest has no filesystem.
+- Requires `/dev/kvm` and a built `hyperlight-wasm` host binary. Without them the `wasm` lane reports `unavailable` in `~/.zap/capabilities.json` and `doctor`.
+
+## Capabilities
+
+| capability | value |
+| --- | --- |
+| isolation | `microvm` |
+| snapshot | yes |
+| fork / stop / resume / ports | no |
+| kvm | yes |
+| max command seconds | 3600 |

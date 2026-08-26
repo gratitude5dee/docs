@@ -1,0 +1,35 @@
+---
+title: "Gateway"
+description: "One service for LLM and media providers: deterministic routing, pure quotes, and provider keys that never leave the server side."
+---
+
+The gateway (`@wzrdtech/zap-runtime/gateway`) is the runtime's single door to model providers. It wraps the 0.3.1 provider adapters and deterministic router rather than replacing them.
+
+## Surface
+
+```ts
+export interface GatewayService {
+  llm(route: LlmRouteId, opts: {
+    model: string;
+    auth?: "byok" | "claude-code" | "codex" | "managed";
+  }): LlmService;
+  media(provider: MediaProviderId, opts: { model?: string }): MediaService;
+  route(capability, hint?): { provider; model; usdEstimate };
+  quote(plan): Promise<{ usd: number; lines: [...] }>;   // never calls a provider
+}
+```
+
+- **LLM routes**: `openrouter`, `gateway` (Vercel AI Gateway), `openai`, `anthropic`, `xai`, `gmi`.
+- **Media providers**: `aws`, `vertex`, `gmi`, `fal`, `prodia`, `runware`, `replicate`.
+
+## Plan-only is structural
+
+`quote()` and `route()` are pure over the model rate tables — plan-only runs never contact a provider. `MediaService.submit` throws `LIVE_REQUIRED` unless the session carries `live: true` and a payer is configured. A missing BYOK key fails closed with `KEY_MISSING` before any request.
+
+## The gateway owns provider keys
+
+Provider keys stay server-side. Managed VMs never receive keys — a harness in managed mode gets only an OpenAI-flavor proxy URL (`ZAP_API_URL/v1/runtimes/{id}/gateway`) wired into its config; the gateway resolves the real key per request and settles usage against the meter. BYOK env is injected per box at create time and registered with the redaction layer.
+
+## FFmpeg presets
+
+Presets are data — `{ id, argv(inputs, params), estimateCpuSeconds(probe), outputs }`. `zap ffmpeg <preset> <input> <output>` prints the argv and estimate by default; `--live` executes through the `ffmpeg` lane and records the output in the [media filesystem](/services/mediafs) with `ffmpegPreset` set.
