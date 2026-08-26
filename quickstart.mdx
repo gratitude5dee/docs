@@ -5,46 +5,45 @@ description: "Install the Zap v5 CLI, check your setup with doctor, and compose 
 
 Zap requires Node 24.x. Every command supports `--json`: humans get text, agents get JSON.
 
-## 1. Check your setup
+<Steps>
+  <Step title="Check your setup">
+    ```bash
+    npx @wzrdtech/zap@5.0.1 doctor --json
+    ```
 
-```bash
-npx @wzrdtech/zap@5.0.0 doctor --json
-```
+    `doctor` reports Node version, payer mode (`byok` | `managed` | `missing`), sandbox availability, and template status.
+  </Step>
+  <Step title="Compose a runtime">
+    ```bash
+    npx @wzrdtech/zap@5.0.1 init
+    npx @wzrdtech/zap@5.0.1 compose --weight med --sandbox box --dry-run --json
+    ```
 
-`doctor` reports Node version, payer mode (`byok` | `managed` | `missing`), sandbox availability, and template status.
+    `compose` resolves `Runtime.md` (or `zap.config.ts`) into a deterministic plugin tree without acquiring anything. Equivalent `Runtime.md` and `zap.config.ts` definitions produce identical trees and lock hashes. Drop `--dry-run` to boot the runtime on your sandbox.
+  </Step>
+  <Step title="Manage the runtime">
+    ```bash
+    zap runtime up --json
+    zap runtime ps --json
+    zap runtime exec <id> -- echo hello
+    zap runtime down <id>
+    ```
 
-## 2. Compose a runtime
+    `zap runtime` also supports `logs`, `snapshot`, `fork`, `stop`, `resume`, and `desktop`. `zap fs <ls|read|write|rm> <runtime-id> <path>` operates on the runtime's filesystem.
+  </Step>
+  <Step title="Stay plan-only, or go live">
+    Plan-only is the default everywhere. Side-effecting work emits `tool.planned` events with cost estimates. To spend for real:
 
-```bash
-npx @wzrdtech/zap@5.0.0 init
-npx @wzrdtech/zap@5.0.0 compose --weight med --sandbox box --dry-run --json
-```
+    ```bash
+    zap pay status                 # payer: byok | managed | missing
+    zap keys add openrouter        # BYOK, or:
+    zap pay login --managed        # spend-capped managed wallet
+    zap run <Zap.md> --live        # now spends
+    ```
 
-`compose` resolves `Runtime.md` (or `zap.config.ts`) into a deterministic plugin tree without acquiring anything. Equivalent `Runtime.md` and `zap.config.ts` definitions produce identical trees and lock hashes. Drop `--dry-run` to boot the runtime on your sandbox.
-
-## 3. Manage the runtime
-
-```bash
-zap runtime up --json
-zap runtime ps --json
-zap runtime exec <id> -- echo hello
-zap runtime down <id>
-```
-
-`zap runtime` also supports `logs`, `snapshot`, `fork`, `stop`, `resume`, and `desktop`. `zap fs <ls|read|write|rm> <runtime-id> <path>` operates on the runtime's filesystem.
-
-## 4. Stay plan-only, or go live
-
-Plan-only is the default everywhere. Side-effecting work emits `tool.planned` events with cost estimates. To spend for real:
-
-```bash
-zap pay status                 # payer: byok | managed | missing
-zap keys add openrouter        # BYOK, or:
-zap pay login --managed        # spend-capped managed wallet
-zap run <Zap.md> --live        # now spends
-```
-
-No payer + `--live` fails closed with `PAYER_MISSING` — never a silent downgrade.
+    <Warning>No payer + `--live` fails closed with `PAYER_MISSING` — never a silent downgrade.</Warning>
+  </Step>
+</Steps>
 
 ## Install options
 
@@ -63,5 +62,11 @@ Or project-local: `npm install --save-dev @wzrdtech/zap`, then `npm exec -- zap 
   </Card>
   <Card title="Runtime profiles" icon="layer-group" href="/concepts/runtime-profiles">
     Choose between zap-light, zap-med, and zap-heavy.
+  </Card>
+  <Card title="Use Zap from your agent" icon="plug" href="/agents/use-zap">
+    One command connects Claude Code, Cursor, Codex, Devin, and more over MCP.
+  </Card>
+  <Card title="Sandboxes" icon="box" href="/concepts/sandboxes">
+    Box-first isolation with nine providers behind one contract.
   </Card>
 </CardGroup>

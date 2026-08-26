@@ -3,6 +3,8 @@ title: "Modal (GPU lane)"
 description: "Modal is the GPU lane target — never a general sandbox. It mounts only when a gpu lane is declared."
 ---
 
+<img src="/images/logos/modal.svg" alt="Modal" height="32" noZoom />
+
 Modal is **not** a general sandbox in Zap: it is the GPU lane target (`sandbox.modal` plugin plus the `lanes.gpu` dispatcher).
 
 - `acquire()` accepts `purpose: "lane"` only — anything else throws `MODAL_LANE_ONLY`, so a CPU runtime can never mount it by accident.

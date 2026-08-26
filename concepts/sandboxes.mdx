@@ -5,6 +5,45 @@ description: "One sandbox contract over every execution provider. Box is the def
 
 Zap's sandbox contract (`@wzrdtech/zap-sandbox`) is one interface — `SandboxProvider` / `SandboxHandle` / `SandboxSpec` / `ExecResult` — over every execution provider. Box (ascii.dev) is the default; every other provider implements the same contract, and GPUs are opt-in lane plugins.
 
+## Providers
+
+<CardGroup cols={3}>
+  <Card title="Box" icon="box" href="/sandboxes/box" horizontal>
+    Default VM sandbox
+  </Card>
+  <Card title="Namespace" href="/sandboxes/namespace" horizontal>
+    <img src="/images/logos/namespace.svg" alt="Namespace" height="24" noZoom />
+    First-party VM
+  </Card>
+  <Card title="Self-host" icon="server" href="/sandboxes/selfhost" horizontal>
+    Your own KVM microVMs
+  </Card>
+  <Card title="microsandbox" href="/sandboxes/microsandbox" horizontal>
+    <img src="/images/logos/microsandbox.png" alt="microsandbox" height="24" noZoom />
+    Local KVM microVMs
+  </Card>
+  <Card title="E2B" href="/sandboxes/e2b" horizontal>
+    <img src="/images/logos/e2b.png" alt="E2B" height="24" noZoom />
+    Firecracker microVMs
+  </Card>
+  <Card title="Daytona" href="/sandboxes/daytona" horizontal>
+    <img src="/images/logos/daytona.png" alt="Daytona" height="24" noZoom />
+    Container sandboxes
+  </Card>
+  <Card title="Cloudflare" href="/sandboxes/cloudflare" horizontal>
+    <img src="/images/logos/cloudflare.svg" alt="Cloudflare" height="24" noZoom />
+    Workers containers
+  </Card>
+  <Card title="Modal (GPU)" href="/sandboxes/modal" horizontal>
+    <img src="/images/logos/modal.svg" alt="Modal" height="24" noZoom />
+    GPU lane only
+  </Card>
+  <Card title="Docker" href="/sandboxes/docker" horizontal>
+    <img src="/images/logos/docker.svg" alt="Docker" height="24" noZoom />
+    Local containers
+  </Card>
+</CardGroup>
+
 ## Isolation classes
 
 - **vm / microvm** — hardware-virtualized guests (Box, E2B Firecracker microVMs, microsandbox KVM). Strongest boundary; the kernel is not shared.
