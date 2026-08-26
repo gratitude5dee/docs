@@ -13,7 +13,7 @@ In `byok` mode the runtime resolves each provider key in order: provider env var
 
 Managed mode settles through the Zap Cloud payment gate. Two protocols are accepted:
 
-- **x402 v2** (<img src="/images/logos/coinbase.svg" alt="Coinbase" height="16" style={{ display: "inline", verticalAlign: "text-bottom" }} noZoom /> Coinbase's payment protocol) — the client sends `PAYMENT-SIGNATURE`; the gate verifies and settles via a facilitator and returns `PAYMENT-RESPONSE`. The legacy v1 `X-PAYMENT` header is rejected unless the deployment sets `ZAP_X402_V1_SHIM=1`.
+- **x402 v2** (<img src="/images/logos/coinbase.svg" alt="Coinbase" style={{ height: "16px", width: "auto", display: "inline-block" }} noZoom /> Coinbase's payment protocol) — the client sends `PAYMENT-SIGNATURE`; the gate verifies and settles via a facilitator and returns `PAYMENT-RESPONSE`. The legacy v1 `X-PAYMENT` header is rejected unless the deployment sets `ZAP_X402_V1_SHIM=1`.
 - **MPP** — the client sends `Authorization: Payment ...`; the gate returns `Payment-Receipt`.
 
 An unpaid request receives `402` with both a `PAYMENT-REQUIRED` challenge and `WWW-Authenticate: Payment`, so either protocol can respond.
