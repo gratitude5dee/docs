@@ -1,0 +1,152 @@
+---
+title: "Use Zap from your agent"
+sidebarTitle: "Use Zap from your agent"
+description: "One command connects any coding agent to Zap over MCP. Pick your agent, paste the snippet, done."
+---
+
+Zap ships an MCP server in the CLI. Any MCP-capable agent gets the full tool surface — `recipes`, `compose`, `runtime`, `agents`, `fs`, `harness`, `pay`, `memory`, `media`, `doctor` — from one command:
+
+```bash
+npx -y @wzrdtech/zap@5.0.1 mcp
+```
+
+No MCP support? Paste these URLs into your agent chat instead:
+
+```text
+https://zap.wzrd.tech/llms.txt
+https://docs.zap.wzrd.tech
+```
+
+## Connect your agent
+
+<Tabs>
+  <Tab title="Claude Code">
+    <img src="/images/logos/claude.svg" alt="Claude" style={{ height: "28px", width: "auto" }} noZoom />
+
+    ```bash
+    claude mcp add zap -- npx -y @wzrdtech/zap@5.0.1 mcp
+    ```
+
+    Or add to `.mcp.json` in your project root:
+
+    ```json .mcp.json
+    {
+      "mcpServers": {
+        "zap": {
+          "command": "npx",
+          "args": ["-y", "@wzrdtech/zap@5.0.1", "mcp"]
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="Cursor">
+    <img className="block dark:hidden" src="/images/logos/cursor-light.svg" alt="Cursor" style={{ height: "28px", width: "auto" }} noZoom />
+    <img className="hidden dark:block" src="/images/logos/cursor-dark.svg" alt="Cursor" style={{ height: "28px", width: "auto" }} noZoom />
+
+    Add to `.cursor/mcp.json` (project) or `~/.cursor/mcp.json` (global):
+
+    ```json .cursor/mcp.json
+    {
+      "mcpServers": {
+        "zap": {
+          "command": "npx",
+          "args": ["-y", "@wzrdtech/zap@5.0.1", "mcp"]
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="Codex">
+    <img className="block dark:hidden" src="/images/logos/codex-light.svg" alt="Codex" style={{ height: "28px", width: "auto" }} noZoom />
+    <img className="hidden dark:block" src="/images/logos/codex-dark.svg" alt="Codex" style={{ height: "28px", width: "auto" }} noZoom />
+
+    ```bash
+    codex mcp add zap -- npx -y @wzrdtech/zap@5.0.1 mcp
+    ```
+
+    Or add to `~/.codex/config.toml`:
+
+    ```toml ~/.codex/config.toml
+    [mcp_servers.zap]
+    command = "npx"
+    args = ["-y", "@wzrdtech/zap@5.0.1", "mcp"]
+    ```
+  </Tab>
+  <Tab title="Devin">
+    <img className="block dark:hidden" src="/images/logos/devin-light.svg" alt="Devin" style={{ height: "28px", width: "auto" }} noZoom />
+    <img className="hidden dark:block" src="/images/logos/devin-dark.svg" alt="Devin" style={{ height: "28px", width: "auto" }} noZoom />
+
+    Add a custom MCP server in **Settings → MCP Marketplace → Add custom server** with:
+
+    ```bash
+    npx -y @wzrdtech/zap@5.0.1 mcp
+    ```
+
+    Or paste `https://zap.wzrd.tech/llms.txt` into the session chat — Devin reads it directly.
+  </Tab>
+  <Tab title="Hermes">
+    Hermes is a Zap harness — compose it and the Zap MCP server is pre-registered:
+
+    ```bash
+    npx @wzrdtech/zap@5.0.1 compose --weight heavy --harness hermes --json
+    ```
+
+    See [zap-heavy-hermes](/harnesses/hermes) for ports, templates, and overlays.
+  </Tab>
+  <Tab title="OpenClaw">
+    <img className="block dark:hidden" src="/images/logos/openclaw-light.svg" alt="OpenClaw" style={{ height: "28px", width: "auto" }} noZoom />
+    <img className="hidden dark:block" src="/images/logos/openclaw-dark.svg" alt="OpenClaw" style={{ height: "28px", width: "auto" }} noZoom />
+
+    OpenClaw is a Zap harness — compose it and the Zap MCP server is pre-registered:
+
+    ```bash
+    npx @wzrdtech/zap@5.0.1 compose --weight heavy --harness openclaw --json
+    ```
+
+    See [zap-heavy-openclaw](/harnesses/openclaw) for ports, templates, and overlays.
+  </Tab>
+  <Tab title="Pi">
+    Add to Pi's MCP config (`~/.pi/mcp.json`):
+
+    ```json ~/.pi/mcp.json
+    {
+      "mcpServers": {
+        "zap": {
+          "command": "npx",
+          "args": ["-y", "@wzrdtech/zap@5.0.1", "mcp"]
+        }
+      }
+    }
+    ```
+
+    Or paste `https://zap.wzrd.tech/llms.txt` into the chat.
+  </Tab>
+</Tabs>
+
+## HTTP transport
+
+For remote agents, run Streamable HTTP instead of stdio:
+
+```bash
+zap mcp --http --host 127.0.0.1 --port 3910
+```
+
+Non-loopback binds require `ZAP_MCP_TOKEN`. See [MCP](/mcp) for tool domains and transport details.
+
+## What your agent can do
+
+<CardGroup cols={2}>
+  <Card title="Compose runtimes" icon="layer-group" href="/concepts/runtime-profiles">
+    Resolve `Runtime.md` into a deterministic plugin tree with a lock hash.
+  </Card>
+  <Card title="Run agents" icon="robot" href="/agents/quickstart">
+    Render, deploy, and drive durable sessions — plan-only by default.
+  </Card>
+  <Card title="Drive sandboxes" icon="box" href="/concepts/sandboxes">
+    Exec CPU work on Box VMs and every other provider behind one contract.
+  </Card>
+  <Card title="Stay machine-readable" icon="brackets-curly" href="/reference/json-output">
+    Every tool returns structured JSON with stable error codes.
+  </Card>
+</CardGroup>

@@ -4,11 +4,11 @@ sidebarTitle: "Introduction"
 description: "Zap v5 is a composable CPU-first agent runtime: compose a runtime on a Box VM, write agents as code, run plan-only by default, and pay with your own keys or per request."
 ---
 
-Zap v5 (`@wzrdtech/zap@5.0.0`) turns Zap from one-click generative media recipes into a **composable CPU agent runtime**: an npm package, a CLI, an MCP server, and a skill set that let an agent or a human compose a runtime from plugins, boot it on an isolated VM, and run agents written as code — plan-only by default, with explicit metered live spend.
+Zap v5 (`@wzrdtech/zap@5.0.1`) turns Zap from one-click generative media recipes into a **composable CPU agent runtime**: an npm package, a CLI, an MCP server, and a skill set that let an agent or a human compose a runtime from plugins, boot it on an isolated VM, and run agents written as code — plan-only by default, with explicit metered live spend.
 
 ```bash
-npx @wzrdtech/zap@5.0.0 doctor --json
-npx @wzrdtech/zap@5.0.0 compose --weight med --sandbox box --dry-run --json
+npx @wzrdtech/zap@5.0.1 doctor --json
+npx @wzrdtech/zap@5.0.1 compose --weight med --sandbox box --dry-run --json
 ```
 
 ## Why CPU
@@ -37,7 +37,7 @@ The 0.3.1 recipe framework is preserved in v5 — recipes still validate and run
 
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="bolt" href="/quickstart">
-    Compose your first runtime with `npx @wzrdtech/zap@5.0.0`.
+    Compose your first runtime with `npx @wzrdtech/zap@5.0.1`.
   </Card>
   <Card title="Agents quickstart" icon="robot" href="/agents/quickstart">
     Build, render, deploy, and talk to your first agent in five minutes.
@@ -47,5 +47,11 @@ The 0.3.1 recipe framework is preserved in v5 — recipes still validate and run
   </Card>
   <Card title="CLI reference" icon="terminal" href="/reference/cli">
     Every command with flags, exit codes, and `--json` shapes.
+  </Card>
+  <Card title="Use Zap from your agent" icon="plug" href="/agents/use-zap">
+    One command connects Claude Code, Cursor, Codex, Devin, and more over MCP.
+  </Card>
+  <Card title="MCP" icon="server" href="/mcp">
+    Stdio and Streamable HTTP transports with ten tool domains.
   </Card>
 </CardGroup>

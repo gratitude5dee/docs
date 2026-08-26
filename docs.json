@@ -3,9 +3,18 @@
   "name": "Zap",
   "theme": "luma",
   "colors": {
-    "primary": "#5c80aa",
-    "light": "#1f2a3b",
-    "dark": "#5c80aa"
+    "primary": "#00b8d9",
+    "light": "#00e5ff",
+    "dark": "#00b8d9"
+  },
+  "background": {
+    "decoration": "gradient",
+    "color": {
+      "dark": "#05080c"
+    }
+  },
+  "styling": {
+    "codeblocks": "system"
   },
   "favicon": "https://icons.duckduckgo.com/ip3/zap-sepia.vercel.app.ico",
   "logo": {
@@ -13,6 +22,16 @@
     "dark": "https://media.brand.dev/86f129d9-0957-49c1-8c00-f63ea0d1e19c.png"
   },
   "navbar": {
+    "links": [
+      {
+        "label": "zap.wzrd.tech",
+        "href": "https://zap.wzrd.tech"
+      },
+      {
+        "label": "npm",
+        "href": "https://www.npmjs.com/package/@wzrdtech/zap"
+      }
+    ],
     "primary": {
       "type": "github",
       "href": "https://github.com/gratitude5dee/zap"
@@ -20,7 +39,8 @@
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/gratitude5dee/zap"
+      "github": "https://github.com/gratitude5dee/zap",
+      "website": "https://zap.wzrd.tech"
     }
   },
   "navigation": {
@@ -33,7 +53,8 @@
             "pages": [
               "introduction",
               "quickstart",
-              "agents/quickstart"
+              "agents/quickstart",
+              "agents/use-zap"
             ]
           },
           {
