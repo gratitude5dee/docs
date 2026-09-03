@@ -113,6 +113,14 @@
             ]
           },
           {
+            "group": "Commerce",
+            "pages": [
+              "commerce/overview",
+              "commerce/agents",
+              "commerce/rollout"
+            ]
+          },
+          {
             "group": "MCP",
             "pages": [
               "mcp"
